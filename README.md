@@ -1,5 +1,7 @@
 # 艺培续费增长助手 MVP
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/fucunzhao/art-training-renewal-assistant)
+
 面向艺术培训机构的续费增长后台原型，支持登录、学员录入、流失风险评分、家长沟通话术生成，以及从本地知识库文件中自动识别学员信息。
 
 ## 功能

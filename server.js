@@ -4,6 +4,7 @@ const fs = require("fs/promises");
 const path = require("path");
 
 const PORT = Number(process.env.PORT || 4173);
+const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
 const DATA_FILE = path.join(ROOT, "data.json");
 const KNOWLEDGE_DIR = path.join(ROOT, "knowledge_base");
@@ -490,7 +491,7 @@ const server = http.createServer(async (req, res) => {
 
 global.__mvpServer = server;
 
-server.listen(PORT, "127.0.0.1", () => {
-  console.log(`MVP running at http://127.0.0.1:${PORT}/`);
+server.listen(PORT, HOST, () => {
+  console.log(`MVP running at http://${HOST}:${PORT}/`);
   console.log(`Login: ${ADMIN_USER} / ${ADMIN_PASS}`);
 });
