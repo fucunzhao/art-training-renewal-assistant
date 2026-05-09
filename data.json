@@ -1,0 +1,190 @@
+[
+  {
+    "id": 1,
+    "name": "林可",
+    "course": "少儿创意美术",
+    "teacher": "周老师",
+    "lessonsLeft": 3,
+    "daysToEnd": 9,
+    "absentRate": 28,
+    "parentReplies": 1,
+    "homeworkMissed": 2,
+    "renewalValue": 3980,
+    "lastContact": "12天前",
+    "status": "待跟进",
+    "proof": [
+      [
+        "线条控制",
+        "从起稿依赖老师提醒，到能独立完成动物轮廓和比例调整。"
+      ],
+      [
+        "色彩表达",
+        "最近两次作品开始主动使用冷暖对比，画面层次明显增强。"
+      ],
+      [
+        "课堂状态",
+        "能连续专注 35 分钟以上，并愿意向同学介绍自己的创作想法。"
+      ]
+    ]
+  },
+  {
+    "id": 2,
+    "name": "陈奕安",
+    "course": "钢琴启蒙",
+    "teacher": "许老师",
+    "lessonsLeft": 5,
+    "daysToEnd": 16,
+    "absentRate": 10,
+    "parentReplies": 0,
+    "homeworkMissed": 3,
+    "renewalValue": 5200,
+    "lastContact": "18天前",
+    "status": "待跟进",
+    "proof": [
+      [
+        "节奏稳定",
+        "四分音符和二分音符的切换比上月更稳，错拍次数下降。"
+      ],
+      [
+        "手型改善",
+        "右手塌指问题减少，能在慢速练习中保持基本支撑。"
+      ],
+      [
+        "练琴习惯",
+        "需要家长配合建立每周三次、每次 15 分钟的固定练习。"
+      ]
+    ]
+  },
+  {
+    "id": 3,
+    "name": "赵一诺",
+    "course": "中国舞三级",
+    "teacher": "孟老师",
+    "lessonsLeft": 2,
+    "daysToEnd": 6,
+    "absentRate": 18,
+    "parentReplies": 3,
+    "homeworkMissed": 0,
+    "renewalValue": 4600,
+    "lastContact": "5天前",
+    "status": "已邀约",
+    "proof": [
+      [
+        "软开进步",
+        "横叉距离地面从 18cm 缩短到 8cm，训练耐受度提升。"
+      ],
+      [
+        "动作记忆",
+        "能完整跟下半段组合，节拍点比第一次排练更准确。"
+      ],
+      [
+        "舞台表现",
+        "眼神和表情开始打开，适合进入考级冲刺班。"
+      ]
+    ]
+  },
+  {
+    "id": 4,
+    "name": "王沐晨",
+    "course": "动漫插画",
+    "teacher": "顾老师",
+    "lessonsLeft": 8,
+    "daysToEnd": 28,
+    "absentRate": 5,
+    "parentReplies": 5,
+    "homeworkMissed": 0,
+    "renewalValue": 5980,
+    "lastContact": "3天前",
+    "status": "稳定",
+    "proof": [
+      [
+        "人物结构",
+        "头身比例从 1:4 过渡到 1:6，角色更接近目标风格。"
+      ],
+      [
+        "上色完成度",
+        "能独立完成底色、阴影和高光三层处理。"
+      ],
+      [
+        "学习意愿",
+        "主动带来参考图，适合安排原创角色系列课题。"
+      ]
+    ]
+  },
+  {
+    "id": 5,
+    "name": "刘知夏",
+    "course": "声乐表演",
+    "teacher": "沈老师",
+    "lessonsLeft": 4,
+    "daysToEnd": 12,
+    "absentRate": 35,
+    "parentReplies": 0,
+    "homeworkMissed": 1,
+    "renewalValue": 6800,
+    "lastContact": "21天前",
+    "status": "待跟进",
+    "proof": [
+      [
+        "气息控制",
+        "长音稳定度提升，但近期缺课影响连续训练。"
+      ],
+      [
+        "音准表现",
+        "副歌高音区偏差减少，适合继续做气息支撑训练。"
+      ],
+      [
+        "表达能力",
+        "愿意尝试带动作演唱，舞台表现力有明显空间。"
+      ]
+    ]
+  },
+  {
+    "id": 6,
+    "name": "孙若晴",
+    "course": "少儿创意美术进阶",
+    "teacher": "唐老师",
+    "lessonsLeft": 2,
+    "daysToEnd": 5,
+    "absentRate": 12,
+    "parentReplies": 0,
+    "homeworkMissed": 1,
+    "renewalValue": 4980,
+    "lastContact": "9天前",
+    "status": "待跟进",
+    "proof": [
+      [
+        "成长证据",
+        "构图开始有主次，能主动安排主体和背景关系。"
+      ],
+      [
+        "成长点",
+        "色彩表达比上月更大胆，开始尝试冷暖对比。"
+      ]
+    ]
+  },
+  {
+    "id": 7,
+    "name": "孙若晴",
+    "course": "少儿创意美术进阶",
+    "teacher": "唐老师",
+    "lessonsLeft": 2,
+    "daysToEnd": 5,
+    "absentRate": 12,
+    "parentReplies": 0,
+    "homeworkMissed": 1,
+    "renewalValue": 4980,
+    "lastContact": "9天前",
+    "status": "待跟进",
+    "proof": [
+      [
+        "成长证据",
+        "构图开始有主次，能主动安排主体和背景关系。"
+      ],
+      [
+        "成长点",
+        "色彩表达比上月更大胆，开始尝试冷暖对比。"
+      ]
+    ]
+  }
+]
