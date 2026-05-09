@@ -267,6 +267,14 @@ async function importKnowledgeCandidates() {
 }
 
 function bindEvents() {
+  document.querySelectorAll(".fold-header").forEach(header => {
+    header.addEventListener("click", () => {
+      const section = header.closest(".fold-section");
+      const collapsed = section.classList.toggle("collapsed");
+      header.setAttribute("aria-expanded", String(!collapsed));
+    });
+  });
+
   document.getElementById("searchInput").addEventListener("input", event => {
     state.query = event.target.value;
     render();
