@@ -10,6 +10,7 @@ COPY login.js ./
 COPY app.js ./
 COPY styles.css ./
 COPY data.json ./
+COPY users.json ./
 COPY knowledge_base ./knowledge_base
 
 ENV HOST=0.0.0.0

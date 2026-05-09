@@ -10,16 +10,29 @@
   <main class="login-shell">
     <section class="login-panel">
       <p class="eyebrow">艺培机构后台</p>
-      <h1>登录续费增长助手</h1>
-      <p class="login-hint">默认试用账号：admin，密码：123456</p>
+      <h1 id="authTitle">登录续费增长助手</h1>
+      <p class="login-hint" id="authHint">可使用测试账号 admin / zzdh6886 登录。</p>
+
+      <div class="auth-tabs" role="tablist" aria-label="账号操作">
+        <button class="auth-tab active" type="button" data-auth-mode="login">登录</button>
+        <button class="auth-tab" type="button" data-auth-mode="register">注册</button>
+      </div>
+
       <form id="loginForm" class="login-form">
         <label for="username">账号</label>
         <input id="username" name="username" autocomplete="username" value="admin">
 
         <label for="password">密码</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" value="123456">
+        <input id="password" name="password" type="password" autocomplete="current-password" value="zzdh6886">
 
-        <button class="primary login-submit" type="submit">登录工作台</button>
+        <label id="roleField" class="hidden-field" for="role">角色</label>
+        <select id="role" name="role" class="hidden-field">
+          <option value="老师">老师</option>
+          <option value="前台">前台</option>
+          <option value="校长">校长</option>
+        </select>
+
+        <button id="authSubmit" class="primary login-submit" type="submit">登录工作台</button>
       </form>
       <p id="loginError" class="login-error" role="alert"></p>
     </section>

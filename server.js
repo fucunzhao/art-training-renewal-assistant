@@ -7,6 +7,7 @@ const PORT = Number(process.env.PORT || 4173);
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
 const DATA_FILE = path.join(ROOT, "data.json");
+const USERS_FILE = path.join(ROOT, "users.json");
 const KNOWLEDGE_DIR = path.join(ROOT, "knowledge_base");
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
@@ -29,6 +30,19 @@ async function readStudents() {
 
 async function writeStudents(students) {
   await fs.writeFile(DATA_FILE, `${JSON.stringify(students, null, 2)}\n`, "utf8");
+}
+
+async function readUsers() {
+  try {
+    const raw = await fs.readFile(USERS_FILE, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+async function writeUsers(users) {
+  await fs.writeFile(USERS_FILE, `${JSON.stringify(users, null, 2)}\n`, "utf8");
 }
 
 function parseCookies(req) {
@@ -328,8 +342,14 @@ async function readBody(req) {
 async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/login") {
     const body = await readBody(req);
-    if (body.username === ADMIN_USER && body.password === ADMIN_PASS) {
-      const user = { username: ADMIN_USER, role: "校长" };
+    const users = await readUsers();
+    const account = users.find(user => user.username === body.username && user.password === body.password);
+    const fallbackAdmin = body.username === ADMIN_USER && body.password === ADMIN_PASS;
+
+    if (account || fallbackAdmin) {
+      const user = account
+        ? { id: account.id, username: account.username, role: account.role }
+        : { username: ADMIN_USER, role: "校长" };
       setSession(res, user);
       sendJson(res, 200, { user });
       return;
@@ -341,6 +361,45 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/logout") {
     clearSession(req, res);
     sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/register") {
+    const body = await readBody(req);
+    const username = String(body.username || "").trim();
+    const password = String(body.password || "");
+    const role = String(body.role || "老师").trim();
+
+    if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
+      sendJson(res, 400, { error: "账号需为3-24位字母、数字或下划线" });
+      return;
+    }
+
+    if (password.length < 6) {
+      sendJson(res, 400, { error: "密码至少6位" });
+      return;
+    }
+
+    const users = await readUsers();
+    if (users.some(user => user.username === username)) {
+      sendJson(res, 409, { error: "账号已存在" });
+      return;
+    }
+
+    const nextId = users.reduce((max, user) => Math.max(max, user.id || 0), 0) + 1;
+    const account = {
+      id: nextId,
+      username,
+      password,
+      role: ["校长", "前台", "老师"].includes(role) ? role : "老师",
+      createdAt: new Date().toISOString()
+    };
+    users.push(account);
+    await writeUsers(users);
+
+    const user = { id: account.id, username: account.username, role: account.role };
+    setSession(res, user);
+    sendJson(res, 201, { user });
     return;
   }
 
