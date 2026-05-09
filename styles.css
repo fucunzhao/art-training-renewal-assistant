@@ -212,6 +212,26 @@ h3 {
   color: var(--muted);
 }
 
+.upload-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.upload-row input {
+  max-width: 360px;
+}
+
+.upload-row button {
+  min-height: 42px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+
 .knowledge-files {
   display: flex;
   flex-wrap: wrap;

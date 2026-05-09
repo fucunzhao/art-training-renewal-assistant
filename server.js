@@ -183,9 +183,19 @@ async function listKnowledgeFiles() {
 }
 
 function getFilePathInKnowledgeBase(fileName) {
-  const filePath = path.resolve(KNOWLEDGE_DIR, fileName);
+  const filePath = path.resolve(KNOWLEDGE_DIR, path.basename(fileName));
   if (!filePath.startsWith(KNOWLEDGE_DIR)) return null;
   return filePath;
+}
+
+function isSupportedKnowledgeFile(fileName) {
+  return [".txt", ".md", ".json", ".csv"].includes(path.extname(fileName).toLowerCase());
+}
+
+function safeKnowledgeFileName(fileName) {
+  const baseName = path.basename(String(fileName || "").trim());
+  const fallback = `upload-${Date.now()}.txt`;
+  return baseName || fallback;
 }
 
 function findText(content, patterns, fallback = "") {
@@ -350,6 +360,28 @@ async function handleApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/knowledge/files") {
     sendJson(res, 200, { files: await listKnowledgeFiles() });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/knowledge/upload") {
+    const body = await readBody(req);
+    const fileName = safeKnowledgeFileName(body.fileName);
+    const content = String(body.content || "");
+
+    if (!isSupportedKnowledgeFile(fileName)) {
+      sendJson(res, 400, { error: "只支持 txt、md、json、csv 文件" });
+      return;
+    }
+
+    if (!content.trim()) {
+      sendJson(res, 400, { error: "文件内容为空" });
+      return;
+    }
+
+    await ensureKnowledgeDir();
+    const filePath = getFilePathInKnowledgeBase(fileName);
+    await fs.writeFile(filePath, content, "utf8");
+    sendJson(res, 201, { fileName });
     return;
   }
 

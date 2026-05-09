@@ -184,6 +184,28 @@ async function scanKnowledgeFiles() {
   showToast(`发现 ${data.files.length} 个文件`);
 }
 
+async function uploadKnowledgeFile() {
+  const input = document.getElementById("knowledgeUpload");
+  const file = input.files?.[0];
+  if (!file) {
+    showToast("请选择一个知识库文件");
+    return;
+  }
+
+  const content = await file.text();
+  await api("/api/knowledge/upload", {
+    method: "POST",
+    body: JSON.stringify({
+      fileName: file.name,
+      content
+    })
+  });
+
+  input.value = "";
+  await scanKnowledgeFiles();
+  showToast("文件已上传到知识库");
+}
+
 async function extractKnowledgeCandidates() {
   const data = await api("/api/knowledge/extract", {
     method: "POST",
@@ -289,6 +311,9 @@ function bindEvents() {
   });
   document.getElementById("scanKnowledgeButton").addEventListener("click", () => {
     scanKnowledgeFiles().catch(error => showToast(error.message));
+  });
+  document.getElementById("uploadKnowledgeButton").addEventListener("click", () => {
+    uploadKnowledgeFile().catch(error => showToast(error.message));
   });
   document.getElementById("extractKnowledgeButton").addEventListener("click", () => {
     extractKnowledgeCandidates().catch(error => showToast(error.message));
