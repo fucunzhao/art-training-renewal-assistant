@@ -59,6 +59,32 @@ ADMIN_PASS=123456
 推荐部署方式：
 
 - GitHub：托管代码仓库
-- Render、Railway、Fly.io、VPS：运行 Node 服务
+- Zeabur、Railway、Fly.io、VPS：运行 Node 服务
+- Docker：仓库已包含 `Dockerfile`
 
 生产环境还需要替换本地 JSON 存储，改为数据库，并把默认密码改成强密码。
+
+## Zeabur 部署
+
+如果 Render 无法打开，可以使用 Zeabur：
+
+1. 打开 Zeabur 并登录
+2. 新建 Project
+3. 选择 GitHub 仓库 `fucunzhao/art-training-renewal-assistant`
+4. 服务类型选择 Node.js 或 Docker
+5. 设置环境变量：
+
+```text
+ADMIN_USER=admin
+ADMIN_PASS=你自己的强密码
+HOST=0.0.0.0
+```
+
+Zeabur 会自动读取 `package.json` 的 `start` 命令，或使用仓库里的 `Dockerfile`。
+
+## Docker 部署
+
+```bash
+docker build -t art-training-renewal-assistant .
+docker run -p 4173:4173 -e ADMIN_USER=admin -e ADMIN_PASS=your-password art-training-renewal-assistant
+```
