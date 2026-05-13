@@ -42,26 +42,26 @@
             <span>提交后自动进入续费风险看板</span>
           </div>
           <form id="studentForm" class="student-form">
-            <label>????<input name="name" id="studentNameInput" required placeholder="????????????"></label>
-            <label>??<input name="age" type="number" min="2" max="80" placeholder="???8"></label>
-            <label>????<input name="teacher" required placeholder="??????"></label>
-            <label>??<input name="course" placeholder="?????????"></label>
-            <label>????<input name="paidAt" type="date"></label>
-            <label>????<input name="paidAmount" type="number" min="0" value="3980"></label>
-            <label>??????<input name="prepaidLessons" type="number" min="0" value="24"></label>
-            <label>????<input name="lessonsLeft" type="number" min="0" value="24"></label>
-            <label>??????<input name="daysToEnd" type="number" min="0" value="60"></label>
-            <label>????? %<input name="absentRate" type="number" min="0" max="100" value="0"></label>
-            <label>?????????<input name="parentReplies" type="number" min="0" value="1"></label>
-            <label>??????<input name="homeworkMissed" type="number" min="0" value="0"></label>
-            <label>????<input name="lastContact" placeholder="???3??" value="???"></label>
-            <label class="wide">??????<input name="proofTitle1" placeholder="??????????????????"></label>
-            <label class="wide">??????<textarea name="proofText1" rows="3" placeholder="????????????????"></textarea></label>
-            <label class="wide">??????????1M?<input name="evidenceImage" id="evidenceImage" type="file" accept="image/png,image/jpeg,image/webp"></label>
-            <p id="studentLookupHint" class="knowledge-path wide">???????????????????????</p>
+            <label>&#x5B66;&#x5458;&#x59D3;&#x540D;<input name="name" id="studentNameInput" required placeholder="&#x8F93;&#x5165;&#x59D3;&#x540D;&#x540E;&#x81EA;&#x52A8;&#x67E5;&#x8BE2;&#x77E5;&#x8BC6;&#x5E93;"></label>
+            <label>&#x5E74;&#x9F84;<input name="age" type="number" min="2" max="80" placeholder="&#x4F8B;&#x5982;&#xFF1A;8"></label>
+            <label>&#x4E0A;&#x8BFE;&#x8001;&#x5E08;<input name="teacher" required placeholder="&#x4F8B;&#x5982;&#xFF1A;&#x5468;&#x8001;&#x5E08;"></label>
+            <label>&#x8BFE;&#x7A0B;<input name="course" placeholder="&#x4F8B;&#x5982;&#xFF1A;&#x5C11;&#x513F;&#x521B;&#x610F;&#x7F8E;&#x672F;"></label>
+            <label>&#x7F34;&#x8D39;&#x65F6;&#x95F4;<input name="paidAt" type="date"></label>
+            <label>&#x7F34;&#x8D39;&#x91D1;&#x989D;<input name="paidAmount" type="number" min="0" value="3980"></label>
+            <label>&#x9884;&#x7F34;&#x8BFE;&#x7A0B;&#x8282;&#x6570;<input name="prepaidLessons" type="number" min="0" value="24"></label>
+            <label>&#x5269;&#x4F59;&#x8BFE;&#x65F6;<input name="lessonsLeft" type="number" min="0" value="24"></label>
+            <label>&#x9884;&#x8BA1;&#x8BFE;&#x6D88;&#x5929;&#x6570;<input name="daysToEnd" type="number" min="0" value="60"></label>
+            <label>&#x8FD1;&#x6708;&#x7F3A;&#x52E4;&#x7387; %<input name="absentRate" type="number" min="0" max="100" value="0"></label>
+            <label>&#x5BB6;&#x957F;&#x8FD1;&#x4E24;&#x5468;&#x56DE;&#x590D;&#x6B21;&#x6570;<input name="parentReplies" type="number" min="0" value="1"></label>
+            <label>&#x4F5C;&#x4E1A;&#x7F3A;&#x4EA4;&#x6B21;&#x6570;<input name="homeworkMissed" type="number" min="0" value="0"></label>
+            <label>&#x6700;&#x8FD1;&#x8054;&#x7CFB;<input name="lastContact" placeholder="&#x4F8B;&#x5982;&#xFF1A;3&#x5929;&#x524D;" value="&#x672A;&#x8054;&#x7CFB;"></label>
+            <label class="wide">&#x6210;&#x957F;&#x8BC1;&#x636E;&#x6807;&#x9898;<input name="proofTitle1" placeholder="&#x4F8B;&#x5982;&#xFF1A;&#x7EBF;&#x6761;&#x63A7;&#x5236;&#x3001;&#x8BFE;&#x5802;&#x72B6;&#x6001;&#x3001;&#x4F5C;&#x54C1;&#x5B8C;&#x6210;&#x5EA6;"></label>
+            <label class="wide">&#x6210;&#x957F;&#x8BC1;&#x636E;&#x6587;&#x5B57;<textarea name="proofText1" rows="3" placeholder="&#x6BCF;&#x6B21;&#x7EF4;&#x62A4;&#x90FD;&#x53EF;&#x4EE5;&#x8FFD;&#x52A0;&#x65B0;&#x7684;&#x6210;&#x957F;&#x8BC1;&#x636E;&#x3002;"></textarea></label>
+            <label class="wide">&#x6210;&#x957F;&#x8BC1;&#x636E;&#x56FE;&#x7247;&#xFF08;&#x4E0D;&#x8D85;&#x8FC7;1M&#xFF09;<input name="evidenceImage" id="evidenceImage" type="file" accept="image/png,image/jpeg,image/webp"></label>
+            <p id="studentLookupHint" class="knowledge-path wide">&#x8F93;&#x5165;&#x59D3;&#x540D;&#x540E;&#xFF0C;&#x5C06;&#x81EA;&#x52A8;&#x4ECE;&#x77E5;&#x8BC6;&#x5E93;&#x7B5B;&#x9009;&#x5E76;&#x56DE;&#x586B;&#x9ED8;&#x8BA4;&#x4FE1;&#x606F;&#x3002;</p>
             <div class="form-actions wide">
-              <button class="primary" type="submit">??/????</button>
-              <button id="resetStudentForm" type="button">??</button>
+              <button class="primary" type="submit">&#x4FDD;&#x5B58;/&#x66F4;&#x65B0;&#x5B66;&#x5458;</button>
+              <button id="resetStudentForm" type="button">&#x6E05;&#x7A7A;</button>
             </div>
           </form>
         </section>
@@ -83,7 +83,7 @@
                 <input id="teacherMonth" type="month" aria-label="month">
                 <button id="nextTeacherMonth" type="button" aria-label="next month">&rsaquo;</button>
               </div>
-              <div class="calendar-weekdays"><span>?</span><span>?</span><span>?</span><span>?</span><span>?</span><span>?</span><span>?</span></div>
+              <div class="calendar-weekdays"><span>&#x4E00;</span><span>&#x4E8C;</span><span>&#x4E09;</span><span>&#x56DB;</span><span>&#x4E94;</span><span>&#x516D;</span><span>&#x65E5;</span></div>
               <div id="teacherCalendar" class="calendar-grid" aria-label="available dates"></div>
               <p id="selectedTeacherDates" class="selected-dates">&#x6682;&#x672A;&#x9009;&#x62E9;&#x65E5;&#x671F;</p>
             </div>

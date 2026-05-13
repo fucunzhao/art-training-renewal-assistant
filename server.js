@@ -111,8 +111,8 @@ function studentKnowledgeFromStudent(student) {
     lessonsLeft: Number(student.lessonsLeft ?? student.prepaidLessons ?? 0),
     daysToEnd: Number(student.daysToEnd ?? 30),
     renewalValue: Number(student.renewalValue ?? student.paidAmount ?? 0),
-    lastContact: student.lastContact || "???",
-    status: student.status || "???",
+    lastContact: student.lastContact || "\u672a\u8054\u7cfb",
+    status: student.status || "\u5f85\u8ddf\u8fdb",
     proof: Array.isArray(student.proof) ? student.proof : [],
     evidence: Array.isArray(student.evidence) ? student.evidence : [],
     updatedAt: new Date().toISOString()
@@ -135,7 +135,7 @@ function normalizeEvidenceItems(body) {
     const title = String(body[`proofTitle${index}`] || "").trim();
     const text = String(body[`proofText${index}`] || "").trim();
     if (title || text) {
-      items.push({ type: "text", title: title || `????${index}`, text, createdAt: new Date().toISOString() });
+      items.push({ type: "text", title: title || `\u6210\u957f\u8bc1\u636e${index}`, text, createdAt: new Date().toISOString() });
     }
   }
   if (Array.isArray(body.evidence)) items.push(...body.evidence);
@@ -145,16 +145,16 @@ function normalizeEvidenceItems(body) {
 async function saveEvidenceImage(studentName, image) {
   if (!image || !image.dataUrl) return null;
   const match = String(image.dataUrl).match(/^data:(image\/(png|jpeg|jpg|webp));base64,(.+)$/i);
-  if (!match) throw new Error("??? PNG?JPG?WEBP ??");
+  if (!match) throw new Error("\u53ea\u652f\u6301 PNG\u3001JPG\u3001WEBP \u56fe\u7247");
   const buffer = Buffer.from(match[3], "base64");
-  if (buffer.length > 1024 * 1024) throw new Error("?????? 1M");
+  if (buffer.length > 1024 * 1024) throw new Error("\u56fe\u7247\u4e0d\u80fd\u8d85\u8fc7 1M");
   await fs.mkdir(STUDENT_ASSET_DIR, { recursive: true });
   const ext = match[2].toLowerCase() === "jpeg" ? "jpg" : match[2].toLowerCase();
   const safeName = String(studentName || "student").replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, "_");
   const fileName = `${safeName}-${Date.now()}.${ext}`;
   const relativePath = `knowledge_base/student_assets/${fileName}`;
   await fs.writeFile(path.join(STUDENT_ASSET_DIR, fileName), buffer);
-  return { type: "image", title: image.title || "??????", fileName, path: relativePath, size: buffer.length, createdAt: new Date().toISOString() };
+  return { type: "image", title: image.title || "\u6210\u957f\u8bc1\u636e\u56fe\u7247", fileName, path: relativePath, size: buffer.length, createdAt: new Date().toISOString() };
 }
 
 async function buildEvidence(body, studentName) {
@@ -367,13 +367,13 @@ function toNumber(value, fallback = 0) {
 
 function evidenceToProof(evidence) {
   const textEvidence = (Array.isArray(evidence) ? evidence : []).filter(item => item.type !== "image");
-  if (!textEvidence.length) return [["????", "??????????????????????????"]];
-  return textEvidence.map(item => [item.title || "????", item.text || item.path || "?????"]);
+  if (!textEvidence.length) return [["\u8bfe\u5802\u8868\u73b0", "\u5df2\u5f55\u5165\u57fa\u7840\u4fe1\u606f\uff0c\u540e\u7eed\u53ef\u7ee7\u7eed\u8865\u5145\u4f5c\u54c1\u3001\u7ec3\u4e60\u6216\u6d4b\u8bc4\u8bb0\u5f55\u3002"]];
+  return textEvidence.map(item => [item.title || "\u6210\u957f\u8bc1\u636e", item.text || item.path || "\u5df2\u4e0a\u4f20\u8bc1\u636e"]);
 }
 
 async function createStudent(body, students) {
   const name = String(body.name || "").trim();
-  if (!name) return { error: "????????" };
+  if (!name) return { error: "\u5b66\u5458\u59d3\u540d\u4e0d\u80fd\u4e3a\u7a7a" };
   const existing = students.find(student => normalizeStudentName(student.name) === normalizeStudentName(name));
   const evidence = await buildEvidence(body, name);
   const previousEvidence = existing?.evidence || [];
@@ -381,8 +381,8 @@ async function createStudent(body, students) {
   const student = existing || { id: students.reduce((max, item) => Math.max(max, item.id || 0), 0) + 1 };
   student.name = name;
   student.age = String(body.age || student.age || "").trim();
-  student.course = String(body.course || student.course || "?????").trim();
-  student.teacher = String(body.teacher || student.teacher || "?????").trim();
+  student.course = String(body.course || student.course || "\u5f85\u8bbe\u7f6e\u8bfe\u7a0b").trim();
+  student.teacher = String(body.teacher || student.teacher || "\u5f85\u5206\u914d\u8001\u5e08").trim();
   student.paidAt = String(body.paidAt || student.paidAt || "").trim();
   student.paidAmount = toNumber(body.paidAmount, toNumber(student.paidAmount, 0));
   student.prepaidLessons = toNumber(body.prepaidLessons, toNumber(student.prepaidLessons, toNumber(student.lessonsLeft, 0)));
@@ -392,8 +392,8 @@ async function createStudent(body, students) {
   student.parentReplies = toNumber(body.parentReplies, toNumber(student.parentReplies, 0));
   student.homeworkMissed = toNumber(body.homeworkMissed, toNumber(student.homeworkMissed, 0));
   student.renewalValue = toNumber(body.renewalValue, student.paidAmount);
-  student.lastContact = String(body.lastContact || student.lastContact || "???").trim();
-  student.status = existing?.status || "???";
+  student.lastContact = String(body.lastContact || student.lastContact || "\u672a\u8054\u7cfb").trim();
+  student.status = existing?.status || "\u5f85\u8ddf\u8fdb";
   student.evidence = mergedEvidence;
   student.proof = evidenceToProof(mergedEvidence);
   student.updatedAt = new Date().toISOString();
