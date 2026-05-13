@@ -5,6 +5,7 @@
   scheduleMeta: null,
   lessons: [],
   recommendations: [],
+  selectedTeacherDates: new Set(),
   selectedId: null,
   filter: "all",
   tone: "warm",
@@ -128,11 +129,43 @@ function renderScheduleOptions() {
 
   renderCourseTypes();
   renderTeachers();
+  renderTeacherCalendar();
   renderClasses();
   renderAvailability();
   renderRecommendations();
 }
 
+function monthValue(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function renderTeacherCalendar() {
+  const monthInput = document.getElementById("teacherMonth");
+  const calendar = document.getElementById("teacherCalendar");
+  const selected = document.getElementById("selectedTeacherDates");
+  if (!monthInput || !calendar || !selected) return;
+  if (!monthInput.value) monthInput.value = monthValue();
+  const [year, month] = monthInput.value.split("-").map(Number);
+  const first = new Date(year, month - 1, 1);
+  const days = new Date(year, month, 0).getDate();
+  const offset = (first.getDay() || 7) - 1;
+  const cells = [];
+  for (let i = 0; i < offset; i += 1) cells.push("<span></span>");
+  for (let day = 1; day <= days; day += 1) {
+    const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    cells.push(`<button type="button" class="calendar-day ${state.selectedTeacherDates.has(date) ? "selected" : ""}" data-date="${date}">${day}</button>`);
+  }
+  calendar.innerHTML = cells.join("");
+  selected.textContent = state.selectedTeacherDates.size ? [...state.selectedTeacherDates].sort().join("\u3001") : "\u6682\u672a\u9009\u62e9\u65e5\u671f";
+}
+
+function shiftTeacherMonth(delta) {
+  const input = document.getElementById("teacherMonth");
+  const [year, month] = (input.value || monthValue()).split("-").map(Number);
+  const date = new Date(year, month - 1 + delta, 1);
+  input.value = monthValue(date);
+  renderTeacherCalendar();
+}
 function renderCourseTypes() {
   document.getElementById("courseTypeList").innerHTML = state.scheduleMeta.courseTypes.map(item => `
     <div class="compact-item">
@@ -299,6 +332,7 @@ async function createStudent(form) {
 }
 
 function teacherPayload(form) {
+  const periods = [...form.querySelectorAll("[name=periods]:checked")].map(input => input.value);
   return {
     name: form.name.value,
     phone: form.phone.value,
@@ -306,20 +340,21 @@ function teacherPayload(form) {
     maxDailyLessons: form.maxDailyLessons.value,
     notes: form.notes.value,
     courseTypeIds: [...form.courseTypeIds.selectedOptions].map(option => Number(option.value)),
-    availableTimes: [{
-      dayOfWeek: Number(form.dayOfWeek.value),
-      startTime: form.startTime.value,
-      endTime: form.endTime.value
-    }]
+    availableDates: [...state.selectedTeacherDates].sort(),
+    periods
   };
 }
 
 async function createTeacher(form) {
-  await api("/api/teachers", { method: "POST", body: JSON.stringify(teacherPayload(form)) });
+  const payload = teacherPayload(form);
+  if (!payload.availableDates.length) return showToast("\u8bf7\u5148\u5728\u65e5\u5386\u4e2d\u9009\u62e9\u53ef\u6388\u8bfe\u65e5\u671f");
+  if (!payload.periods.length) return showToast("\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u4e2a\u65f6\u6bb5");
+  await api("/api/teachers", { method: "POST", body: JSON.stringify(payload) });
   form.reset();
   form.maxDailyLessons.value = 6;
-  form.startTime.value = "09:00";
-  form.endTime.value = "18:00";
+  state.selectedTeacherDates.clear();
+  form.querySelectorAll("[name=periods]").forEach(input => { input.checked = input.value === "morning"; });
+  renderTeacherCalendar();
   await loadScheduleMeta();
   await scanKnowledgeFiles();
   showToast("教师资料已保存到知识库");
@@ -489,6 +524,10 @@ function bindEvents() {
   document.getElementById("notificationList").addEventListener("click", event => { const button = event.target.closest("[data-read-notification]"); if (button) markNotificationRead(button.dataset.readNotification).catch(error => showToast(error.message)); });
 
   document.getElementById("teacherForm").addEventListener("submit", event => { event.preventDefault(); createTeacher(event.currentTarget).catch(error => showToast(error.message)); });
+  document.getElementById("teacherMonth").addEventListener("change", renderTeacherCalendar);
+  document.getElementById("prevTeacherMonth").addEventListener("click", () => shiftTeacherMonth(-1));
+  document.getElementById("nextTeacherMonth").addEventListener("click", () => shiftTeacherMonth(1));
+  document.getElementById("teacherCalendar").addEventListener("click", event => { const button = event.target.closest("[data-date]"); if (!button) return; const date = button.dataset.date; state.selectedTeacherDates.has(date) ? state.selectedTeacherDates.delete(date) : state.selectedTeacherDates.add(date); renderTeacherCalendar(); });
   document.getElementById("teacherList").addEventListener("click", event => { const button = event.target.closest("[data-delete-teacher]"); if (button) deleteTeacher(button.dataset.deleteTeacher).catch(error => showToast(error.message)); });
   document.getElementById("refreshScheduleButton").addEventListener("click", () => Promise.all([loadScheduleMeta(), loadLessons()]).then(() => showToast("排课数据已刷新")).catch(error => showToast(error.message)));
   document.getElementById("courseTypeForm").addEventListener("submit", event => { event.preventDefault(); createCourseType(event.currentTarget).catch(error => showToast(error.message)); });
@@ -523,5 +562,6 @@ function render() {
 }
 
 bindEvents();
+renderTeacherCalendar();
 Promise.all([loadSession(), loadStudents(), loadNotifications(), loadScheduleMeta(), loadLessons()]).catch(() => showToast("请先登录"));
 scanKnowledgeFiles().catch(() => {});

@@ -385,12 +385,56 @@ function createLesson(body, schedule) {
     startTime,
     endTime,
     status: "scheduled",
+    date: recommendation.date || "",
+    periodName: recommendation.periodName || "",
+    lessonIndex: recommendation.lessonIndex || null,
     createdAt: new Date().toISOString()
   };
 
   return { lesson, conflicts: detectLessonConflicts(lesson, schedule) };
 }
 
+const PERIOD_RULES = {
+  morning: { name: "\u4e0a\u5348", startTime: "08:30", endTime: "12:00", firstLessonIndex: 1 },
+  afternoon: { name: "\u4e0b\u5348", startTime: "14:00", endTime: "17:30", firstLessonIndex: 3 },
+  evening: { name: "\u665a\u4e0a", startTime: "18:30", endTime: "20:30", firstLessonIndex: 5 }
+};
+
+function dayOfWeekFromDate(dateText) {
+  const day = new Date(String(dateText) + "T00:00:00").getDay();
+  return day || 7;
+}
+
+function dateTimeIso(dateText, time) {
+  return new Date(String(dateText) + "T" + String(time) + ":00").toISOString();
+}
+
+function lessonIndexForSlot(slot, startTime, durationMinutes) {
+  const period = PERIOD_RULES[slot.period] || null;
+  if (!period) return null;
+  return period.firstLessonIndex + Math.floor((minutesOf(startTime) - minutesOf(period.startTime)) / Math.max(1, durationMinutes));
+}
+
+function expandDatePeriods(dates, periods) {
+  const selectedDates = Array.isArray(dates) ? dates : [];
+  const selectedPeriods = Array.isArray(periods) ? periods : [];
+  const slots = [];
+  for (const date of selectedDates) {
+    for (const periodKey of selectedPeriods) {
+      const period = PERIOD_RULES[periodKey];
+      if (!period) continue;
+      slots.push({
+        date,
+        dayOfWeek: dayOfWeekFromDate(date),
+        period: periodKey,
+        periodName: period.name,
+        startTime: period.startTime,
+        endTime: period.endTime
+      });
+    }
+  }
+  return slots;
+}
 function nextId(items) {
   return items.reduce((max, item) => Math.max(max, item.id || 0), 0) + 1;
 }
@@ -477,8 +521,8 @@ function buildScheduleRecommendation(classItem, schedule, students) {
           )
         );
         const unavailableStudents = (classItem.studentIds || []).filter(studentId => !availableStudents.includes(studentId));
-        const lessonStart = nextDateForDay(teacherSlot.dayOfWeek, startTime).toISOString();
-        const lessonEnd = nextDateForDay(teacherSlot.dayOfWeek, endTime).toISOString();
+        const lessonStart = teacherSlot.date ? dateTimeIso(teacherSlot.date, startTime) : nextDateForDay(teacherSlot.dayOfWeek, startTime).toISOString();
+        const lessonEnd = teacherSlot.date ? dateTimeIso(teacherSlot.date, endTime) : nextDateForDay(teacherSlot.dayOfWeek, endTime).toISOString();
         const candidate = {
           id: recommendations.length + 1,
           classId: classItem.id,
@@ -493,7 +537,11 @@ function buildScheduleRecommendation(classItem, schedule, students) {
 
         recommendations.push({
           id: recommendations.length + 1,
+          date: teacherSlot.date || "",
           dayOfWeek: teacherSlot.dayOfWeek,
+          period: teacherSlot.period || "custom",
+          periodName: teacherSlot.periodName || (PERIOD_RULES[teacherSlot.period]?.name || "\u81ea\u5b9a\u4e49"),
+          lessonIndex: lessonIndexForSlot(teacherSlot, startTime, duration),
           startTime,
           endTime,
           roomId: room.id,
@@ -519,8 +567,8 @@ function buildScheduleRecommendation(classItem, schedule, students) {
 
 function createLessonFromRecommendation(classItem, recommendation, schedule) {
   const course = courseById(schedule, classItem.courseTypeId);
-  const startDate = nextDateForDay(recommendation.dayOfWeek, recommendation.startTime);
-  const endDate = nextDateForDay(recommendation.dayOfWeek, recommendation.endTime);
+  const startDate = recommendation.date ? new Date(String(recommendation.date) + "T" + String(recommendation.startTime) + ":00") : nextDateForDay(recommendation.dayOfWeek, recommendation.startTime);
+  const endDate = recommendation.date ? new Date(String(recommendation.date) + "T" + String(recommendation.endTime) + ":00") : nextDateForDay(recommendation.dayOfWeek, recommendation.endTime);
   return {
     id: nextId(schedule.lessons),
     classId: classItem.id,
@@ -639,7 +687,10 @@ function detectLessonConflicts(candidate, schedule) {
 function normalizeAvailabilitySlots(slots) {
   return (Array.isArray(slots) ? slots : [])
     .map(slot => ({
-      dayOfWeek: Number(slot.dayOfWeek),
+      date: slot.date || "",
+      dayOfWeek: Number(slot.dayOfWeek || (slot.date ? dayOfWeekFromDate(slot.date) : 0)),
+      period: slot.period || "custom",
+      periodName: slot.periodName || (PERIOD_RULES[slot.period]?.name || "\u81ea\u5b9a\u4e49"),
       startTime: String(slot.startTime || ""),
       endTime: String(slot.endTime || "")
     }))
@@ -650,21 +701,29 @@ function enrichTeacher(teacher, schedule) {
   const courseMap = Object.fromEntries(schedule.courseTypes.map(course => [course.id, course.name]));
   const availability = schedule.teacherAvailability
     .filter(slot => Number(slot.teacherId) === Number(teacher.id))
-    .map(slot => ({ dayOfWeek: slot.dayOfWeek, startTime: slot.startTime, endTime: slot.endTime }));
+    .map(slot => ({
+      date: slot.date || "",
+      dayOfWeek: slot.dayOfWeek,
+      period: slot.period || "custom",
+      periodName: slot.periodName || (PERIOD_RULES[slot.period]?.name || "\u81ea\u5b9a\u4e49"),
+      startTime: slot.startTime,
+      endTime: slot.endTime
+    }));
   return {
     ...teacher,
-    courseNames: (teacher.courseTypeIds || []).map(id => courseMap[Number(id)]).filter(Boolean).join("?"),
+    courseNames: (teacher.courseTypeIds || []).map(id => courseMap[Number(id)]).filter(Boolean).join("\u3001"),
     availableTimes: availability.length ? availability : (teacher.availableTimes || [])
   };
 }
 
 function createTeacherRecord(body, schedule) {
   const name = String(body.name || "").trim();
-  if (!name) return { error: "????????" };
+  if (!name) return { error: "\u6559\u5e08\u59d3\u540d\u4e0d\u80fd\u4e3a\u7a7a" };
   const courseTypeIds = Array.isArray(body.courseTypeIds)
     ? body.courseTypeIds.map(Number).filter(Boolean)
     : String(body.courseTypeIds || "").split(",").map(Number).filter(Boolean);
-  const availableTimes = normalizeAvailabilitySlots(body.availableTimes);
+  const dateSlots = expandDatePeriods(body.availableDates, body.periods);
+  const availableTimes = normalizeAvailabilitySlots(dateSlots.length ? dateSlots : body.availableTimes);
   const teacher = {
     id: nextId(schedule.teachers),
     name,
@@ -673,8 +732,10 @@ function createTeacherRecord(body, schedule) {
     courseTypeIds,
     maxDailyLessons: toNumber(body.maxDailyLessons, 6),
     notes: String(body.notes || "").trim(),
+    availableDates: Array.isArray(body.availableDates) ? body.availableDates : [],
+    periods: Array.isArray(body.periods) ? body.periods : [],
     availableTimes,
-    source: "??????",
+    source: "\u540e\u53f0\u6559\u5e08\u5f55\u5165",
     createdAt: new Date().toISOString()
   };
   return { teacher };
@@ -929,7 +990,10 @@ async function handleApi(req, res, url) {
       schedule.teacherAvailability.push({
         id: nextId(schedule.teacherAvailability),
         teacherId: result.teacher.id,
+        date: slot.date || "",
         dayOfWeek: slot.dayOfWeek,
+        period: slot.period || "custom",
+        periodName: slot.periodName || "\u81ea\u5b9a\u4e49",
         startTime: slot.startTime,
         endTime: slot.endTime
       });
@@ -943,7 +1007,7 @@ async function handleApi(req, res, url) {
   if (req.method === "DELETE" && teacherMatch) {
     const id = Number(teacherMatch[1]);
     if (schedule.classes.some(item => Number(item.teacherId) === id)) {
-      return sendJson(res, 409, { error: "????????????????????" });
+      return sendJson(res, 409, { error: "\u8be5\u6559\u5e08\u5df2\u88ab\u73ed\u7ea7\u4f7f\u7528\uff0c\u8bf7\u5148\u8c03\u6574\u73ed\u7ea7\u6388\u8bfe\u8001\u5e08" });
     }
     schedule.teachers = schedule.teachers.filter(item => Number(item.id) !== id);
     schedule.teacherAvailability = schedule.teacherAvailability.filter(item => Number(item.teacherId) !== id);
@@ -1038,7 +1102,7 @@ async function handleApi(req, res, url) {
       startTime: String(body.startTime || ""),
       endTime: String(body.endTime || "")
     };
-    if (!slot.teacherId || !slot.dayOfWeek || !slot.startTime || !slot.endTime) return sendJson(res, 400, { error: "????????????" });
+    if (!slot.teacherId || !slot.dayOfWeek || !slot.startTime || !slot.endTime) return sendJson(res, 400, { error: "\u8001\u5e08\u548c\u53ef\u6388\u8bfe\u65f6\u95f4\u4e3a\u5fc5\u586b\u9879" });
     schedule.teacherAvailability.push(slot);
     const teacher = schedule.teachers.find(item => Number(item.id) === slot.teacherId);
     if (teacher) {

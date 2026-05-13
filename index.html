@@ -72,9 +72,22 @@
             <label>用工类型<select name="employmentType"><option value="全职">全职</option><option value="兼职">兼职</option></select></label>
             <label>每日最多课节<input name="maxDailyLessons" type="number" min="1" value="6"></label>
             <label class="wide">授课类型<select name="courseTypeIds" id="teacherCourseTypes" multiple></select></label>
-            <label>可授课星期<select name="dayOfWeek"><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select></label>
-            <label>开始时间<input name="startTime" type="time" value="09:00"></label>
-            <label>结束时间<input name="endTime" type="time" value="18:00"></label>
+            <div class="calendar-picker wide">
+              <div class="calendar-toolbar">
+                <button id="prevTeacherMonth" type="button" aria-label="prev month">&lsaquo;</button>
+                <input id="teacherMonth" type="month" aria-label="month">
+                <button id="nextTeacherMonth" type="button" aria-label="next month">&rsaquo;</button>
+              </div>
+              <div class="calendar-weekdays"><span>?</span><span>?</span><span>?</span><span>?</span><span>?</span><span>?</span><span>?</span></div>
+              <div id="teacherCalendar" class="calendar-grid" aria-label="available dates"></div>
+              <p id="selectedTeacherDates" class="selected-dates">&#x6682;&#x672A;&#x9009;&#x62E9;&#x65E5;&#x671F;</p>
+            </div>
+            <fieldset class="period-picker wide">
+              <legend>&#x53EF;&#x6388;&#x8BFE;&#x65F6;&#x6BB5;</legend>
+              <label><input type="checkbox" name="periods" value="morning" checked> &#x4E0A;&#x5348; 08:30-12:00</label>
+              <label><input type="checkbox" name="periods" value="afternoon"> &#x4E0B;&#x5348; 14:00-17:30</label>
+              <label><input type="checkbox" name="periods" value="evening"> &#x665A;&#x4E0A; 18:30-20:30</label>
+            </fieldset>
             <label class="wide">备注<textarea name="notes" rows="2" placeholder="例如：擅长低龄启蒙，可带体验课。"></textarea></label>
             <div class="form-actions wide"><button class="primary" type="submit">保存教师到知识库</button></div>
           </form>
