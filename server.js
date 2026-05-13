@@ -63,9 +63,18 @@ async function writeNotifications(notifications) {
 async function readSchedule() {
   try {
     const raw = await fs.readFile(SCHEDULE_FILE, "utf8");
-    return JSON.parse(raw);
+    const schedule = JSON.parse(raw);
+    return {
+      courseTypes: schedule.courseTypes || schedule.courses || [],
+      classes: schedule.classes || [],
+      teachers: schedule.teachers || [],
+      rooms: schedule.rooms || [],
+      teacherAvailability: schedule.teacherAvailability || [],
+      studentAvailability: schedule.studentAvailability || [],
+      lessons: schedule.lessons || []
+    };
   } catch {
-    return { teachers: [], rooms: [], courses: [], lessons: [] };
+    return { courseTypes: [], classes: [], teachers: [], rooms: [], teacherAvailability: [], studentAvailability: [], lessons: [] };
   }
 }
 
@@ -335,7 +344,7 @@ function detectLessonConflicts(candidate, schedule) {
 }
 
 function createLesson(body, schedule) {
-  const course = schedule.courses.find(item => item.id === Number(body.courseId));
+  const course = (schedule.courseTypes || schedule.courses || []).find(item => item.id === Number(body.courseId));
   const startTime = String(body.startTime || "");
   const endTime = body.endTime
     ? String(body.endTime)
@@ -361,6 +370,251 @@ function createLesson(body, schedule) {
   };
 
   return { lesson, conflicts: detectLessonConflicts(lesson, schedule) };
+}
+
+function nextId(items) {
+  return items.reduce((max, item) => Math.max(max, item.id || 0), 0) + 1;
+}
+
+function minutesOf(time) {
+  const [hours, minutes] = String(time || "00:00").split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function timeWindowContains(outer, start, durationMinutes) {
+  const startMinutes = minutesOf(start);
+  return startMinutes >= minutesOf(outer.startTime) && startMinutes + durationMinutes <= minutesOf(outer.endTime);
+}
+
+function addMinutesToTime(time, durationMinutes) {
+  const total = minutesOf(time) + durationMinutes;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function nextDateForDay(dayOfWeek, time) {
+  const now = new Date();
+  const current = now.getDay() || 7;
+  let diff = Number(dayOfWeek) - current;
+  if (diff < 0) diff += 7;
+  const date = new Date(now);
+  date.setDate(now.getDate() + diff);
+  const [hours, minutes] = String(time).split(":").map(Number);
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+}
+
+function courseById(schedule, id) {
+  return (schedule.courseTypes || schedule.courses || []).find(item => item.id === Number(id));
+}
+
+function roomFitsCourse(room, course) {
+  if (!room || !course) return false;
+  if (room.roomType && course.roomTypes) return course.roomTypes.includes(room.roomType);
+  if (room.courseTypes) return room.courseTypes.includes(course.name);
+  return true;
+}
+
+function teacherFitsCourse(teacher, course) {
+  if (!teacher || !course) return false;
+  if (teacher.courseTypeIds) return teacher.courseTypeIds.includes(Number(course.id));
+  if (teacher.courses) return teacher.courses.includes(course.name);
+  return true;
+}
+
+function enrichClass(classItem, schedule, students) {
+  const course = courseById(schedule, classItem.courseTypeId);
+  const teacher = schedule.teachers.find(item => item.id === Number(classItem.teacherId));
+  return {
+    ...classItem,
+    courseName: course?.name || "未设置课程",
+    teacherName: teacher?.name || "未分配老师",
+    studentNames: getStudentNames(students, classItem.studentIds || [])
+  };
+}
+
+function buildScheduleRecommendation(classItem, schedule, students) {
+  const course = courseById(schedule, classItem.courseTypeId);
+  const teacher = schedule.teachers.find(item => item.id === Number(classItem.teacherId));
+  if (!classItem || !course || !teacher) return [];
+
+  const duration = Number(course.durationMinutes || 60);
+  const teacherSlots = schedule.teacherAvailability.filter(slot => Number(slot.teacherId) === Number(classItem.teacherId));
+  const rooms = schedule.rooms.filter(room => roomFitsCourse(room, course) && room.capacity >= (classItem.studentIds || []).length);
+  const recommendations = [];
+
+  for (const teacherSlot of teacherSlots) {
+    for (const room of rooms) {
+      let startMinutes = minutesOf(teacherSlot.startTime);
+      const endLimit = minutesOf(teacherSlot.endTime) - duration;
+
+      while (startMinutes <= endLimit) {
+        const startTime = `${String(Math.floor(startMinutes / 60)).padStart(2, "0")}:${String(startMinutes % 60).padStart(2, "0")}`;
+        const endTime = addMinutesToTime(startTime, duration);
+        const availableStudents = (classItem.studentIds || []).filter(studentId =>
+          schedule.studentAvailability.some(slot =>
+            Number(slot.studentId) === Number(studentId) &&
+            Number(slot.dayOfWeek) === Number(teacherSlot.dayOfWeek) &&
+            timeWindowContains(slot, startTime, duration)
+          )
+        );
+        const unavailableStudents = (classItem.studentIds || []).filter(studentId => !availableStudents.includes(studentId));
+        const lessonStart = nextDateForDay(teacherSlot.dayOfWeek, startTime).toISOString();
+        const lessonEnd = nextDateForDay(teacherSlot.dayOfWeek, endTime).toISOString();
+        const candidate = {
+          id: recommendations.length + 1,
+          classId: classItem.id,
+          courseId: course.id,
+          teacherId: teacher.id,
+          roomId: room.id,
+          studentIds: availableStudents,
+          startTime: lessonStart,
+          endTime: lessonEnd
+        };
+        const conflicts = detectLessonConflicts(candidate, schedule);
+
+        recommendations.push({
+          id: recommendations.length + 1,
+          dayOfWeek: teacherSlot.dayOfWeek,
+          startTime,
+          endTime,
+          roomId: room.id,
+          roomName: room.name,
+          teacherName: teacher.name,
+          courseName: course.name,
+          availableCount: availableStudents.length,
+          totalCount: (classItem.studentIds || []).length,
+          availableStudentIds: availableStudents,
+          unavailableStudentNames: getStudentNames(students, unavailableStudents),
+          conflicts
+        });
+
+        startMinutes += 30;
+      }
+    }
+  }
+
+  return recommendations
+    .sort((a, b) => b.availableCount - a.availableCount || a.conflicts.length - b.conflicts.length)
+    .slice(0, 8);
+}
+
+function createLessonFromRecommendation(classItem, recommendation, schedule) {
+  const course = courseById(schedule, classItem.courseTypeId);
+  const startDate = nextDateForDay(recommendation.dayOfWeek, recommendation.startTime);
+  const endDate = nextDateForDay(recommendation.dayOfWeek, recommendation.endTime);
+  return {
+    id: nextId(schedule.lessons),
+    classId: classItem.id,
+    courseId: course.id,
+    teacherId: classItem.teacherId,
+    roomId: recommendation.roomId,
+    studentIds: recommendation.availableStudentIds,
+    startTime: startDate.toISOString(),
+    endTime: endDate.toISOString(),
+    status: "scheduled",
+    createdAt: new Date().toISOString()
+  };
+}
+
+function getStudentNames(students, studentIds) {
+  return (studentIds || [])
+    .map(id => students.find(student => student.id === Number(id))?.name)
+    .filter(Boolean)
+    .join("、");
+}
+
+function enrichClass(classItem, schedule, students) {
+  const course = courseById(schedule, classItem.courseTypeId);
+  const teacher = schedule.teachers.find(item => item.id === Number(classItem.teacherId));
+  const hasLesson = schedule.lessons.some(lesson => Number(lesson.classId) === Number(classItem.id));
+  return {
+    ...classItem,
+    courseName: course?.name || "未设置课程",
+    teacherName: teacher?.name || "未分配老师",
+    status: hasLesson ? "已排课" : "待排课",
+    studentNames: getStudentNames(students, classItem.studentIds || [])
+  };
+}
+
+function enrichLesson(lesson, schedule, students) {
+  const teacher = schedule.teachers.find(item => item.id === Number(lesson.teacherId));
+  const room = schedule.rooms.find(item => item.id === Number(lesson.roomId));
+  const course = courseById(schedule, lesson.courseId);
+  const classItem = schedule.classes.find(item => item.id === Number(lesson.classId));
+  return {
+    ...lesson,
+    teacherName: teacher?.name || "未分配老师",
+    roomName: room?.name || "未分配教室",
+    courseName: course?.name || "未设置课程",
+    className: classItem?.name || "",
+    studentNames: getStudentNames(students, lesson.studentIds || [])
+  };
+}
+
+function detectLessonConflicts(candidate, schedule) {
+  const conflicts = [];
+  const activeLessons = schedule.lessons.filter(lesson => lesson.status !== "cancelled" && lesson.id !== candidate.id);
+  const room = schedule.rooms.find(item => item.id === Number(candidate.roomId));
+  const course = courseById(schedule, candidate.courseId);
+  const teacher = schedule.teachers.find(item => item.id === Number(candidate.teacherId));
+  const studentIds = (candidate.studentIds || []).map(Number);
+
+  for (const lesson of activeLessons) {
+    if (!dateRangeOverlaps(candidate.startTime, candidate.endTime, lesson.startTime, lesson.endTime)) continue;
+    if (Number(lesson.teacherId) === Number(candidate.teacherId)) conflicts.push("老师同一时间已有课程");
+    if (Number(lesson.roomId) === Number(candidate.roomId)) conflicts.push("教室同一时间已被占用");
+    if ((lesson.studentIds || []).some(id => studentIds.includes(Number(id)))) conflicts.push("学员同一时间已有课程");
+  }
+
+  if (room && studentIds.length > room.capacity) conflicts.push(`教室容量不足，最多 ${room.capacity} 人`);
+  if (room && course && !roomFitsCourse(room, course)) conflicts.push("课程类型与教室不匹配");
+  if (teacher && course && !teacherFitsCourse(teacher, course)) conflicts.push("老师不具备该课程授课资格");
+
+  return [...new Set(conflicts)];
+}
+
+function getStudentNames(students, studentIds) {
+  return (studentIds || [])
+    .map(id => students.find(student => student.id === Number(id))?.name)
+    .filter(Boolean)
+    .join("、");
+}
+
+function enrichLesson(lesson, schedule, students) {
+  const teacher = schedule.teachers.find(item => item.id === Number(lesson.teacherId));
+  const room = schedule.rooms.find(item => item.id === Number(lesson.roomId));
+  const course = courseById(schedule, lesson.courseId);
+  const classItem = schedule.classes.find(item => item.id === Number(lesson.classId));
+  return {
+    ...lesson,
+    teacherName: teacher?.name || "未分配老师",
+    roomName: room?.name || "未分配教室",
+    courseName: course?.name || "未设置课程",
+    className: classItem?.name || "",
+    studentNames: getStudentNames(students, lesson.studentIds || [])
+  };
+}
+
+function detectLessonConflicts(candidate, schedule) {
+  const conflicts = [];
+  const activeLessons = schedule.lessons.filter(lesson => lesson.status !== "cancelled" && lesson.id !== candidate.id);
+  const room = schedule.rooms.find(item => item.id === Number(candidate.roomId));
+  const course = courseById(schedule, candidate.courseId);
+  const teacher = schedule.teachers.find(item => item.id === Number(candidate.teacherId));
+  const studentIds = (candidate.studentIds || []).map(Number);
+
+  for (const lesson of activeLessons) {
+    if (!dateRangeOverlaps(candidate.startTime, candidate.endTime, lesson.startTime, lesson.endTime)) continue;
+    if (Number(lesson.teacherId) === Number(candidate.teacherId)) conflicts.push("老师同一时间已有课程");
+    if (Number(lesson.roomId) === Number(candidate.roomId)) conflicts.push("教室同一时间已被占用");
+    if ((lesson.studentIds || []).some(id => studentIds.includes(Number(id)))) conflicts.push("学员同一时间已有课程");
+  }
+
+  if (room && studentIds.length > room.capacity) conflicts.push(`教室容量不足，最多 ${room.capacity} 人`);
+  if (room && course && !roomFitsCourse(room, course)) conflicts.push("课程类型与教室不匹配");
+  if (teacher && course && !teacherFitsCourse(teacher, course)) conflicts.push("老师不具备该课程授课资格");
+
+  return [...new Set(conflicts)];
 }
 
 async function ensureKnowledgeDir() {
@@ -600,9 +854,13 @@ async function handleApi(req, res, url) {
 
   if (req.method === "GET" && url.pathname === "/api/schedule/meta") {
     sendJson(res, 200, {
+      courseTypes: schedule.courseTypes,
+      classes: schedule.classes.map(item => enrichClass(item, schedule, students)),
       teachers: schedule.teachers,
       rooms: schedule.rooms,
-      courses: schedule.courses,
+      courses: schedule.courseTypes,
+      teacherAvailability: schedule.teacherAvailability,
+      studentAvailability: schedule.studentAvailability,
       students: students.map(student => ({
         id: student.id,
         name: student.name,
@@ -610,6 +868,121 @@ async function handleApi(req, res, url) {
         lessonsLeft: student.lessonsLeft
       }))
     });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/schedule/course-types") {
+    const body = await readBody(req);
+    const name = String(body.name || "").trim();
+    if (!name) return sendJson(res, 400, { error: "课程类型名称不能为空" });
+    const courseType = {
+      id: nextId(schedule.courseTypes),
+      name,
+      category: String(body.category || "未分类").trim(),
+      durationMinutes: toNumber(body.durationMinutes, 60),
+      defaultCapacity: toNumber(body.defaultCapacity, 10),
+      roomTypes: String(body.roomTypes || "").split(",").map(item => item.trim()).filter(Boolean),
+      enabled: true
+    };
+    schedule.courseTypes.push(courseType);
+    await writeSchedule(schedule);
+    sendJson(res, 201, { courseType });
+    return;
+  }
+
+  const courseTypeMatch = url.pathname.match(/^\/api\/schedule\/course-types\/(\d+)$/);
+  if (req.method === "DELETE" && courseTypeMatch) {
+    const id = Number(courseTypeMatch[1]);
+    schedule.courseTypes = schedule.courseTypes.filter(item => item.id !== id);
+    schedule.classes = schedule.classes.filter(item => item.courseTypeId !== id);
+    await writeSchedule(schedule);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/schedule/classes") {
+    const body = await readBody(req);
+    const name = String(body.name || "").trim();
+    if (!name || !body.courseTypeId || !body.teacherId) return sendJson(res, 400, { error: "班级名称、课程类型和老师为必填项" });
+    const classItem = {
+      id: nextId(schedule.classes),
+      name,
+      courseTypeId: Number(body.courseTypeId),
+      teacherId: Number(body.teacherId),
+      studentIds: Array.isArray(body.studentIds) ? body.studentIds.map(Number).filter(Boolean) : [],
+      capacity: toNumber(body.capacity, courseById(schedule, body.courseTypeId)?.defaultCapacity || 10),
+      status: "待排课"
+    };
+    schedule.classes.push(classItem);
+    await writeSchedule(schedule);
+    sendJson(res, 201, { classItem: enrichClass(classItem, schedule, students) });
+    return;
+  }
+
+  const classMatch = url.pathname.match(/^\/api\/schedule\/classes\/(\d+)$/);
+  if (req.method === "DELETE" && classMatch) {
+    const id = Number(classMatch[1]);
+    schedule.classes = schedule.classes.filter(item => item.id !== id);
+    schedule.lessons = schedule.lessons.filter(item => item.classId !== id);
+    await writeSchedule(schedule);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/schedule/teacher-availability") {
+    const body = await readBody(req);
+    const slot = {
+      id: nextId(schedule.teacherAvailability),
+      teacherId: Number(body.teacherId),
+      dayOfWeek: Number(body.dayOfWeek),
+      startTime: String(body.startTime || ""),
+      endTime: String(body.endTime || "")
+    };
+    if (!slot.teacherId || !slot.dayOfWeek || !slot.startTime || !slot.endTime) return sendJson(res, 400, { error: "老师和可授课时间为必填项" });
+    schedule.teacherAvailability.push(slot);
+    await writeSchedule(schedule);
+    sendJson(res, 201, { slot });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/schedule/student-availability") {
+    const body = await readBody(req);
+    const slot = {
+      id: nextId(schedule.studentAvailability),
+      studentId: Number(body.studentId),
+      dayOfWeek: Number(body.dayOfWeek),
+      startTime: String(body.startTime || ""),
+      endTime: String(body.endTime || "")
+    };
+    if (!slot.studentId || !slot.dayOfWeek || !slot.startTime || !slot.endTime) return sendJson(res, 400, { error: "学生和可上课时间为必填项" });
+    schedule.studentAvailability.push(slot);
+    await writeSchedule(schedule);
+    sendJson(res, 201, { slot });
+    return;
+  }
+
+  const recommendationMatch = url.pathname.match(/^\/api\/schedule\/classes\/(\d+)\/recommendations$/);
+  if (req.method === "GET" && recommendationMatch) {
+    const classItem = schedule.classes.find(item => item.id === Number(recommendationMatch[1]));
+    if (!classItem) return sendJson(res, 404, { error: "Class not found" });
+    sendJson(res, 200, { recommendations: buildScheduleRecommendation(classItem, schedule, students) });
+    return;
+  }
+
+  const generateMatch = url.pathname.match(/^\/api\/schedule\/classes\/(\d+)\/generate$/);
+  if (req.method === "POST" && generateMatch) {
+    const body = await readBody(req);
+    const classItem = schedule.classes.find(item => item.id === Number(generateMatch[1]));
+    if (!classItem) return sendJson(res, 404, { error: "Class not found" });
+    const recommendations = buildScheduleRecommendation(classItem, schedule, students);
+    const recommendation = recommendations.find(item => item.id === Number(body.recommendationId)) || recommendations[0];
+    if (!recommendation) return sendJson(res, 400, { error: "暂无可生成的推荐课表" });
+    if (recommendation.conflicts.length && !body.force) return sendJson(res, 409, { error: "推荐时间存在冲突", conflicts: recommendation.conflicts });
+    const lesson = createLessonFromRecommendation(classItem, recommendation, schedule);
+    schedule.lessons.push(lesson);
+    classItem.status = "已排课";
+    await writeSchedule(schedule);
+    sendJson(res, 201, { lesson: enrichLesson(lesson, schedule, students), classItem: enrichClass(classItem, schedule, students) });
     return;
   }
 

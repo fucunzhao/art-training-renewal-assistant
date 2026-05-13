@@ -2,7 +2,7 @@
   "name": "art-training-renewal-assistant",
   "version": "0.1.0",
   "private": true,
-  "description": "艺培机构续费增长助手 MVP，包含登录、学员录入、风险看板和本地知识库 AI 录入。",
+  "description": "艺培机构续费增长与教务排课课消 MVP，包含登录、学员录入、AI知识库导入、风险看板、通知和排课课消。",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

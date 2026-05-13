@@ -227,6 +227,100 @@ h3 {
   background: #fff;
 }
 
+.schedule-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.schedule-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.schedule-card h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.mini-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mini-form input,
+.mini-form select {
+  min-width: 0;
+}
+
+.mini-form select[multiple] {
+  min-height: 96px;
+  padding: 8px;
+}
+
+.mini-form button {
+  grid-column: 1 / -1;
+}
+
+.compact-list,
+.recommendation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.compact-item,
+.recommendation-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.compact-item small,
+.recommendation-card p {
+  color: var(--muted);
+}
+
+.compact-item button,
+.recommendation-card button,
+.recommend-controls button,
+.schedule-recommend .section-title button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.schedule-recommend {
+  margin-top: 14px;
+}
+
+.recommend-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.candidate-warning {
+  color: var(--red);
+}
+
+.candidate-proof {
+  color: var(--green);
+}
+
 .entry-title {
   margin-bottom: 16px;
 }
@@ -813,19 +907,24 @@ li {
 }
 
 .notification-head,
-.notification-actions {
+.notification-actions,
+.drawer-head,
+.drawer-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.notification-head {
+.notification-head,
+.drawer-head {
   margin-bottom: 16px;
 }
 
 .notification-head button,
 .notification-actions button,
+.drawer-head button,
+.drawer-actions button,
 .notification-item button {
   min-height: 36px;
   padding: 0 12px;
@@ -835,7 +934,8 @@ li {
   color: var(--ink);
 }
 
-.notification-actions {
+.notification-actions,
+.drawer-actions {
   margin-bottom: 14px;
 }
 
@@ -906,7 +1006,9 @@ li {
 
   .summary-strip,
   .workspace,
+  .schedule-grid,
   .student-form,
+  .mini-form,
   .lesson-form,
   .insight-band,
   .metric-grid,
@@ -917,6 +1019,14 @@ li {
   .student-form .wide,
   .lesson-form .wide {
     grid-column: auto;
+  }
+
+  .recommend-controls,
+  .compact-item,
+  .recommendation-card {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+    flex-direction: column;
   }
 
   .app-shell,

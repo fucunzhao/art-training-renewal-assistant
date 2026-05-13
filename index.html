@@ -10,22 +10,13 @@
   <header class="topbar">
     <div>
       <p class="eyebrow">艺培机构 MVP</p>
-      <h1>续费增长助手</h1>
+      <h1>续费增长与教务排课助手</h1>
     </div>
     <div class="topbar-right">
       <div class="summary-strip" aria-label="经营摘要">
-        <div>
-          <span id="summaryRisk">0</span>
-          <small>高风险</small>
-        </div>
-        <div>
-          <span id="summaryDue">0</span>
-          <small>14天内课消完</small>
-        </div>
-        <div>
-          <span id="summaryValue">¥0</span>
-          <small>待保护收入</small>
-        </div>
+        <div><span id="summaryRisk">0</span><small>高风险</small></div>
+        <div><span id="summaryDue">0</span><small>14天内课消完</small></div>
+        <div><span id="summaryValue">¥0</span><small>待保护收入</small></div>
       </div>
       <div class="account-box">
         <span id="currentUser">未登录</span>
@@ -54,56 +45,18 @@
             <span>提交后自动进入续费风险看板</span>
           </div>
           <form id="studentForm" class="student-form">
-            <label>
-              学员姓名
-              <input name="name" required placeholder="例如：李安然">
-            </label>
-            <label>
-              课程
-              <input name="course" required placeholder="例如：少儿美术基础">
-            </label>
-            <label>
-              负责老师
-              <input name="teacher" required placeholder="例如：王老师">
-            </label>
-            <label>
-              剩余课时
-              <input name="lessonsLeft" type="number" min="0" value="4">
-            </label>
-            <label>
-              预计课消天数
-              <input name="daysToEnd" type="number" min="0" value="14">
-            </label>
-            <label>
-              近月缺勤率 %
-              <input name="absentRate" type="number" min="0" max="100" value="0">
-            </label>
-            <label>
-              家长近两周回复次数
-              <input name="parentReplies" type="number" min="0" value="1">
-            </label>
-            <label>
-              作业缺交次数
-              <input name="homeworkMissed" type="number" min="0" value="0">
-            </label>
-            <label>
-              续费金额
-              <input name="renewalValue" type="number" min="0" value="3980">
-            </label>
-            <label>
-              最近联系
-              <input name="lastContact" placeholder="例如：7天前" value="未联系">
-            </label>
-            <label class="wide">
-              成长证据 1
-              <input name="proofTitle1" placeholder="标题，例如：线条控制">
-              <textarea name="proofText1" rows="2" placeholder="具体表现，例如：能独立完成轮廓和比例调整。"></textarea>
-            </label>
-            <label class="wide">
-              成长证据 2
-              <input name="proofTitle2" placeholder="标题，例如：课堂状态">
-              <textarea name="proofText2" rows="2" placeholder="具体表现，例如：专注时间提升，愿意表达创作想法。"></textarea>
-            </label>
+            <label>学员姓名<input name="name" required placeholder="例如：李安然"></label>
+            <label>课程<input name="course" required placeholder="例如：少儿美术基础"></label>
+            <label>负责老师<input name="teacher" required placeholder="例如：王老师"></label>
+            <label>剩余课时<input name="lessonsLeft" type="number" min="0" value="4"></label>
+            <label>预计课消天数<input name="daysToEnd" type="number" min="0" value="14"></label>
+            <label>近月缺勤率 %<input name="absentRate" type="number" min="0" max="100" value="0"></label>
+            <label>家长近两周回复次数<input name="parentReplies" type="number" min="0" value="1"></label>
+            <label>作业缺交次数<input name="homeworkMissed" type="number" min="0" value="0"></label>
+            <label>续费金额<input name="renewalValue" type="number" min="0" value="3980"></label>
+            <label>最近联系<input name="lastContact" placeholder="例如：3天前" value="未联系"></label>
+            <label class="wide">成长证据 1<input name="proofTitle1" placeholder="标题，例如：线条控制"><textarea name="proofText1" rows="2" placeholder="具体表现，例如：能独立完成轮廓和比例调整。"></textarea></label>
+            <label class="wide">成长证据 2<input name="proofTitle2" placeholder="标题，例如：课堂状态"><textarea name="proofText2" rows="2" placeholder="具体表现，例如：专注时间提升，愿意表达创作想法。"></textarea></label>
             <div class="form-actions wide">
               <button class="primary" type="submit">保存学员</button>
               <button id="resetStudentForm" type="button">清空</button>
@@ -134,70 +87,107 @@
       </div>
     </section>
 
-    <section class="fold-section" data-fold-section="dashboard">
+    <section class="fold-section" data-fold-section="schedule">
       <button class="fold-header" type="button" aria-expanded="true">
         <div>
           <p class="eyebrow">教务排课</p>
-          <h2>排课与课消</h2>
+          <h2>课程、班级、可用时间与课消</h2>
         </div>
-        <span class="fold-meta">安排老师、教室、时间，完成后自动扣课时</span>
+        <span class="fold-meta">课程类型 → 班级 → 可用时间 → 推荐排课 → 生成课表</span>
       </button>
       <div class="fold-body">
-        <section class="schedule-panel" aria-label="排课与课消">
-          <div class="section-title entry-title">
-            <div>
-              <p class="eyebrow">新建课节</p>
-              <h2>安排上课时间</h2>
-            </div>
-            <button id="refreshScheduleButton" type="button">刷新课表</button>
+        <section class="schedule-panel">
+          <div class="schedule-grid">
+            <section class="schedule-card">
+              <h3>1. 课程类型</h3>
+              <form id="courseTypeForm" class="mini-form">
+                <input name="name" placeholder="课程类型，如少儿创意美术" required>
+                <input name="category" placeholder="分类，如美术">
+                <input name="durationMinutes" type="number" min="30" value="90" placeholder="单节分钟">
+                <input name="defaultCapacity" type="number" min="1" value="10" placeholder="默认容量">
+                <input name="roomTypes" placeholder="适用教室类型，逗号分隔">
+                <button class="primary" type="submit">新增课程类型</button>
+              </form>
+              <div id="courseTypeList" class="compact-list"></div>
+            </section>
+
+            <section class="schedule-card">
+              <h3>2. 班级管理</h3>
+              <form id="classForm" class="mini-form">
+                <input name="name" placeholder="班级名称，如美术A班" required>
+                <select name="courseTypeId" id="classCourseType"></select>
+                <select name="teacherId" id="classTeacher"></select>
+                <input name="capacity" type="number" min="1" value="10" placeholder="班级容量">
+                <select name="studentIds" id="classStudents" multiple></select>
+                <button class="primary" type="submit">新增班级</button>
+              </form>
+              <div id="classList" class="compact-list"></div>
+            </section>
+
+            <section class="schedule-card">
+              <h3>3. 老师可授课时间</h3>
+              <form id="teacherAvailabilityForm" class="mini-form">
+                <select name="teacherId" id="availabilityTeacher"></select>
+                <select name="dayOfWeek">
+                  <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
+                  <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option>
+                </select>
+                <input name="startTime" type="time" value="09:00">
+                <input name="endTime" type="time" value="18:00">
+                <button class="primary" type="submit">保存老师时间</button>
+              </form>
+              <div id="teacherAvailabilityList" class="compact-list"></div>
+            </section>
+
+            <section class="schedule-card">
+              <h3>4. 学生可上课时间</h3>
+              <form id="studentAvailabilityForm" class="mini-form">
+                <select name="studentId" id="availabilityStudent"></select>
+                <select name="dayOfWeek">
+                  <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
+                  <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option>
+                </select>
+                <input name="startTime" type="time" value="10:00">
+                <input name="endTime" type="time" value="12:00">
+                <button class="primary" type="submit">保存学生时间</button>
+              </form>
+              <div id="studentAvailabilityList" class="compact-list"></div>
+            </section>
           </div>
-          <form id="lessonForm" class="lesson-form">
-            <label>
-              课程
-              <select name="courseId" id="lessonCourse"></select>
-            </label>
-            <label>
-              老师
-              <select name="teacherId" id="lessonTeacher"></select>
-            </label>
-            <label>
-              教室
-              <select name="roomId" id="lessonRoom"></select>
-            </label>
-            <label>
-              开始时间
-              <input name="startTime" type="datetime-local" required>
-            </label>
-            <label>
-              结束时间
-              <input name="endTime" type="datetime-local">
-            </label>
-            <label class="wide">
-              学员
-              <select name="studentIds" id="lessonStudents" multiple></select>
-            </label>
-            <div class="form-actions">
-              <button id="checkConflictButton" type="button">检查冲突</button>
-              <button class="primary" type="submit">保存课节</button>
+
+          <section class="schedule-card schedule-recommend">
+            <div class="section-title entry-title">
+              <div>
+                <p class="eyebrow">5. 推荐排课</p>
+                <h2>选择班级生成推荐时间</h2>
+              </div>
+              <button id="refreshScheduleButton" type="button">刷新排课数据</button>
             </div>
-          </form>
-          <div id="conflictBox" class="conflict-box"></div>
-          <div class="schedule-table-wrap">
-            <table class="schedule-table">
-              <thead>
-                <tr>
-                  <th>时间</th>
-                  <th>课程</th>
-                  <th>老师</th>
-                  <th>教室</th>
-                  <th>学员</th>
-                  <th>状态</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody id="lessonList"></tbody>
-            </table>
-          </div>
+            <div class="recommend-controls">
+              <select id="recommendClass"></select>
+              <button id="recommendScheduleButton" class="primary" type="button">生成推荐排课</button>
+            </div>
+            <div id="recommendationList" class="recommendation-list"></div>
+          </section>
+
+          <section class="schedule-card">
+            <div class="section-title entry-title">
+              <div>
+                <p class="eyebrow">已生成课表</p>
+                <h2>课节与课消</h2>
+              </div>
+            </div>
+            <div class="schedule-table-wrap">
+              <table class="schedule-table">
+                <thead>
+                  <tr>
+                    <th>时间</th><th>班级</th><th>课程</th><th>老师</th><th>教室</th><th>学员</th><th>状态</th><th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="lessonList"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
       </div>
     </section>
@@ -241,37 +231,16 @@
               </div>
               <span id="riskBadge" class="risk-badge">风险</span>
             </div>
-
             <div class="metric-grid">
-              <div class="metric">
-                <span id="riskScore">0</span>
-                <small>流失风险分</small>
-              </div>
-              <div class="metric">
-                <span id="lessonsLeft">0</span>
-                <small>剩余课时</small>
-              </div>
-              <div class="metric">
-                <span id="daysToEnd">0</span>
-                <small>预计课消天数</small>
-              </div>
-              <div class="metric">
-                <span id="renewalValue">¥0</span>
-                <small>续费金额</small>
-              </div>
+              <div class="metric"><span id="riskScore">0</span><small>流失风险分</small></div>
+              <div class="metric"><span id="lessonsLeft">0</span><small>剩余课时</small></div>
+              <div class="metric"><span id="daysToEnd">0</span><small>预计课消天数</small></div>
+              <div class="metric"><span id="renewalValue">¥0</span><small>续费金额</small></div>
             </div>
-
             <div class="insight-band">
-              <div>
-                <h3>系统判断</h3>
-                <ul id="riskReasons"></ul>
-              </div>
-              <div>
-                <h3>推荐动作</h3>
-                <p id="nextAction"></p>
-              </div>
+              <div><h3>系统判断</h3><ul id="riskReasons"></ul></div>
+              <div><h3>推荐动作</h3><p id="nextAction"></p></div>
             </div>
-
             <div class="growth-section">
               <div class="section-title">
                 <h3>成长证据</h3>
@@ -279,7 +248,6 @@
               </div>
               <div id="growthTimeline" class="timeline"></div>
             </div>
-
             <div class="message-section">
               <div class="section-title">
                 <h3>家长沟通话术</h3>
@@ -290,7 +258,7 @@
                 </div>
               </div>
               <textarea id="messageBox" rows="8" aria-label="自动生成的沟通话术"></textarea>
-              <div class="action-row">
+              <div class="message-actions">
                 <button id="copyMessageButton" class="primary" type="button">复制话术</button>
                 <button id="markContactedButton" type="button">标记已跟进</button>
                 <button id="markRenewedButton" type="button">标记已续费</button>
@@ -302,22 +270,22 @@
     </section>
   </main>
 
-  <aside id="notificationDrawer" class="notification-drawer" aria-label="消息中心">
-    <div class="notification-head">
+  <aside id="notificationDrawer" class="notification-drawer" aria-label="通知中心">
+    <div class="drawer-head">
       <div>
         <p class="eyebrow">通知服务</p>
-        <h2>消息中心</h2>
+        <h2>跟进提醒</h2>
       </div>
       <button id="closeNotificationButton" type="button">关闭</button>
     </div>
-    <div class="notification-actions">
+    <div class="drawer-actions">
       <button id="triggerRiskNotificationsButton" class="primary" type="button">生成高风险提醒</button>
       <button id="markAllNotificationsButton" type="button">全部已读</button>
     </div>
     <div id="notificationList" class="notification-list"></div>
   </aside>
 
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast" role="status"></div>
   <script src="./app.js"></script>
 </body>
 </html>

@@ -1,21 +1,61 @@
 {
+  "courseTypes": [
+    {
+      "id": 1,
+      "name": "少儿创意美术",
+      "category": "美术",
+      "durationMinutes": 90,
+      "defaultCapacity": 10,
+      "roomTypes": ["美术教室"],
+      "enabled": true
+    },
+    {
+      "id": 2,
+      "name": "钢琴启蒙",
+      "category": "音乐",
+      "durationMinutes": 60,
+      "defaultCapacity": 1,
+      "roomTypes": ["钢琴教室"],
+      "enabled": true
+    },
+    {
+      "id": 3,
+      "name": "中国舞三级",
+      "category": "舞蹈",
+      "durationMinutes": 90,
+      "defaultCapacity": 16,
+      "roomTypes": ["舞蹈教室"],
+      "enabled": true
+    }
+  ],
+  "classes": [
+    {
+      "id": 1,
+      "name": "少儿创意美术A班",
+      "courseTypeId": 1,
+      "teacherId": 1,
+      "studentIds": [1, 4],
+      "capacity": 10,
+      "status": "待排课"
+    }
+  ],
   "teachers": [
     {
       "id": 1,
       "name": "周老师",
-      "courses": ["少儿创意美术", "动漫插画"],
+      "courseTypeIds": [1],
       "maxDailyLessons": 6
     },
     {
       "id": 2,
       "name": "唐老师",
-      "courses": ["少儿创意美术进阶"],
+      "courseTypeIds": [1],
       "maxDailyLessons": 6
     },
     {
       "id": 3,
       "name": "孟老师",
-      "courses": ["中国舞三级"],
+      "courseTypeIds": [3],
       "maxDailyLessons": 5
     }
   ],
@@ -24,39 +64,51 @@
       "id": 1,
       "name": "美术教室A",
       "capacity": 12,
-      "courseTypes": ["少儿创意美术", "动漫插画", "少儿创意美术进阶"]
+      "roomType": "美术教室"
     },
     {
       "id": 2,
       "name": "舞蹈教室B",
       "capacity": 18,
-      "courseTypes": ["中国舞三级", "声乐表演"]
+      "roomType": "舞蹈教室"
     },
     {
       "id": 3,
       "name": "钢琴教室C",
       "capacity": 2,
-      "courseTypes": ["钢琴启蒙"]
+      "roomType": "钢琴教室"
     }
   ],
-  "courses": [
+  "teacherAvailability": [
     {
       "id": 1,
-      "name": "少儿创意美术",
-      "durationMinutes": 90,
-      "defaultCapacity": 10
+      "teacherId": 1,
+      "dayOfWeek": 6,
+      "startTime": "09:00",
+      "endTime": "18:00"
     },
     {
       "id": 2,
-      "name": "钢琴启蒙",
-      "durationMinutes": 60,
-      "defaultCapacity": 1
+      "teacherId": 1,
+      "dayOfWeek": 3,
+      "startTime": "18:00",
+      "endTime": "20:30"
+    }
+  ],
+  "studentAvailability": [
+    {
+      "id": 1,
+      "studentId": 1,
+      "dayOfWeek": 6,
+      "startTime": "10:00",
+      "endTime": "12:00"
     },
     {
-      "id": 3,
-      "name": "中国舞三级",
-      "durationMinutes": 90,
-      "defaultCapacity": 16
+      "id": 2,
+      "studentId": 4,
+      "dayOfWeek": 6,
+      "startTime": "09:00",
+      "endTime": "12:00"
     }
   ],
   "lessons": []
