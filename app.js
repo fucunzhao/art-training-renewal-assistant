@@ -1,6 +1,7 @@
 const state = {
   students: [],
   knowledgeCandidates: [],
+  notifications: [],
   selectedId: null,
   filter: "all",
   tone: "warm",
@@ -41,6 +42,12 @@ async function loadStudents() {
   render();
 }
 
+async function loadNotifications() {
+  const data = await api("/api/notifications");
+  state.notifications = data.notifications;
+  renderNotifications(data.unreadCount);
+}
+
 function filteredStudents() {
   const query = state.query.trim().toLowerCase();
   return state.students.filter(student => {
@@ -58,6 +65,27 @@ function renderSummary(summary) {
   document.getElementById("summaryRisk").textContent = summary.highRiskCount;
   document.getElementById("summaryDue").textContent = summary.dueSoonCount;
   document.getElementById("summaryValue").textContent = currency.format(summary.protectedRevenue);
+}
+
+function renderNotifications(unreadCount) {
+  document.getElementById("notificationBadge").textContent = unreadCount;
+  const list = document.getElementById("notificationList");
+
+  if (!state.notifications.length) {
+    list.innerHTML = "<p class=\"empty-state\">暂无通知</p>";
+    return;
+  }
+
+  list.innerHTML = state.notifications.map(item => `
+    <article class="notification-item ${item.status === "unread" ? "unread" : ""}">
+      <div>
+        <strong>${item.title}</strong>
+        <p>${item.content}</p>
+        <small>${new Date(item.createdAt).toLocaleString("zh-CN")} · ${item.status === "unread" ? "未读" : "已读"}</small>
+      </div>
+      ${item.status === "unread" ? `<button type="button" data-read-notification="${item.id}">已读</button>` : ""}
+    </article>
+  `).join("");
 }
 
 function renderList() {
@@ -266,6 +294,25 @@ async function importKnowledgeCandidates() {
   showToast(`已导入 ${data.imported.length} 位学员`);
 }
 
+async function triggerRiskNotifications() {
+  const data = await api("/api/notifications/high-risk", { method: "POST" });
+  state.notifications = data.notifications;
+  renderNotifications(data.unreadCount);
+  showToast(data.created.length ? `已生成 ${data.created.length} 条提醒` : "暂无新的高风险提醒");
+}
+
+async function markNotificationRead(id) {
+  const data = await api(`/api/notifications/${id}/read`, { method: "POST" });
+  state.notifications = state.notifications.map(item => item.id === data.notification.id ? data.notification : item);
+  renderNotifications(data.unreadCount);
+}
+
+async function markAllNotificationsRead() {
+  const data = await api("/api/notifications/read-all", { method: "POST" });
+  state.notifications = data.notifications;
+  renderNotifications(data.unreadCount);
+}
+
 function bindEvents() {
   document.querySelectorAll(".fold-header").forEach(header => {
     header.addEventListener("click", () => {
@@ -273,6 +320,25 @@ function bindEvents() {
       const collapsed = section.classList.toggle("collapsed");
       header.setAttribute("aria-expanded", String(!collapsed));
     });
+  });
+
+  document.getElementById("notificationButton").addEventListener("click", () => {
+    document.getElementById("notificationDrawer").classList.add("open");
+    loadNotifications().catch(error => showToast(error.message));
+  });
+  document.getElementById("closeNotificationButton").addEventListener("click", () => {
+    document.getElementById("notificationDrawer").classList.remove("open");
+  });
+  document.getElementById("triggerRiskNotificationsButton").addEventListener("click", () => {
+    triggerRiskNotifications().catch(error => showToast(error.message));
+  });
+  document.getElementById("markAllNotificationsButton").addEventListener("click", () => {
+    markAllNotificationsRead().catch(error => showToast(error.message));
+  });
+  document.getElementById("notificationList").addEventListener("click", event => {
+    const button = event.target.closest("[data-read-notification]");
+    if (!button) return;
+    markNotificationRead(button.dataset.readNotification).catch(error => showToast(error.message));
   });
 
   document.getElementById("searchInput").addEventListener("input", event => {
@@ -341,7 +407,7 @@ function render() {
 }
 
 bindEvents();
-Promise.all([loadSession(), loadStudents()]).catch(() => {
+Promise.all([loadSession(), loadStudents(), loadNotifications()]).catch(() => {
   showToast("请先登录");
 });
 scanKnowledgeFiles().catch(() => {});

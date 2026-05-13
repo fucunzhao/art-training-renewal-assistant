@@ -29,6 +29,7 @@
       </div>
       <div class="account-box">
         <span id="currentUser">未登录</span>
+        <button id="notificationButton" type="button">消息 <b id="notificationBadge">0</b></button>
         <button id="logoutButton" type="button">退出</button>
       </div>
     </div>
@@ -232,6 +233,21 @@
       </div>
     </section>
   </main>
+
+  <aside id="notificationDrawer" class="notification-drawer" aria-label="消息中心">
+    <div class="notification-head">
+      <div>
+        <p class="eyebrow">通知服务</p>
+        <h2>消息中心</h2>
+      </div>
+      <button id="closeNotificationButton" type="button">关闭</button>
+    </div>
+    <div class="notification-actions">
+      <button id="triggerRiskNotificationsButton" class="primary" type="button">生成高风险提醒</button>
+      <button id="markAllNotificationsButton" type="button">全部已读</button>
+    </div>
+    <div id="notificationList" class="notification-list"></div>
+  </aside>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="./app.js"></script>

@@ -8,6 +8,7 @@ const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
 const DATA_FILE = path.join(ROOT, "data.json");
 const USERS_FILE = path.join(ROOT, "users.json");
+const NOTIFICATIONS_FILE = path.join(ROOT, "notifications.json");
 const KNOWLEDGE_DIR = path.join(ROOT, "knowledge_base");
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
@@ -43,6 +44,19 @@ async function readUsers() {
 
 async function writeUsers(users) {
   await fs.writeFile(USERS_FILE, `${JSON.stringify(users, null, 2)}\n`, "utf8");
+}
+
+async function readNotifications() {
+  try {
+    const raw = await fs.readFile(NOTIFICATIONS_FILE, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+async function writeNotifications(notifications) {
+  await fs.writeFile(NOTIFICATIONS_FILE, `${JSON.stringify(notifications, null, 2)}\n`, "utf8");
 }
 
 function parseCookies(req) {
@@ -138,6 +152,83 @@ function makeSummary(students) {
     dueSoonCount: dueSoon.length,
     protectedRevenue: highRisk.reduce((sum, student) => sum + student.renewalValue, 0)
   };
+}
+
+function renderTemplate(template, payload) {
+  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => payload[key] ?? "");
+}
+
+function createNotificationRecord(notifications, payload) {
+  const nextId = notifications.reduce((max, item) => Math.max(max, item.id || 0), 0) + 1;
+  const notification = {
+    id: nextId,
+    title: payload.title,
+    content: payload.content,
+    type: payload.type || "system",
+    targetRole: payload.targetRole || "all",
+    status: "unread",
+    createdAt: new Date().toISOString(),
+    readAt: null
+  };
+  notifications.unshift(notification);
+  return notification;
+}
+
+async function sendWechatWorkMessage(content) {
+  if (!process.env.WECHAT_WORK_BOT_URL) return { skipped: true };
+
+  const response = await fetch(process.env.WECHAT_WORK_BOT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      msgtype: "text",
+      text: { content }
+    })
+  });
+
+  return { ok: response.ok, status: response.status };
+}
+
+async function createHighRiskNotifications(students) {
+  const notifications = await readNotifications();
+  const highRiskStudents = students.map(enrichStudent).filter(student => student.riskScore >= 72);
+  const created = [];
+
+  for (const student of highRiskStudents) {
+    const duplicate = notifications.some(item =>
+      item.type === "student.renewal_risk_high" &&
+      item.studentId === student.id &&
+      item.status === "unread"
+    );
+    if (duplicate) continue;
+
+    const content = renderTemplate(
+      "{{studentName}} 剩余 {{lessonsLeft}} 节课，风险分 {{riskScore}}。建议：{{nextAction}}",
+      {
+        studentName: student.name,
+        lessonsLeft: student.lessonsLeft,
+        riskScore: student.riskScore,
+        nextAction: student.nextAction
+      }
+    );
+
+    const notification = createNotificationRecord(notifications, {
+      title: `高风险学员：${student.name}`,
+      content,
+      type: "student.renewal_risk_high",
+      targetRole: "前台"
+    });
+    notification.studentId = student.id;
+    created.push(notification);
+  }
+
+  await writeNotifications(notifications);
+
+  if (created.length) {
+    await sendWechatWorkMessage(`续费风险提醒：今日新增 ${created.length} 位高风险学员待跟进。`);
+  }
+
+  return created;
 }
 
 function toNumber(value, fallback = 0) {
@@ -416,6 +507,55 @@ async function handleApi(req, res, url) {
   }
 
   const students = await readStudents();
+
+  if (req.method === "GET" && url.pathname === "/api/notifications") {
+    const notifications = await readNotifications();
+    sendJson(res, 200, {
+      notifications,
+      unreadCount: notifications.filter(item => item.status === "unread").length
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/notifications/high-risk") {
+    const created = await createHighRiskNotifications(students);
+    const notifications = await readNotifications();
+    sendJson(res, 201, {
+      created,
+      notifications,
+      unreadCount: notifications.filter(item => item.status === "unread").length
+    });
+    return;
+  }
+
+  const notificationReadMatch = url.pathname.match(/^\/api\/notifications\/(\d+)\/read$/);
+  if (req.method === "POST" && notificationReadMatch) {
+    const notifications = await readNotifications();
+    const notification = notifications.find(item => item.id === Number(notificationReadMatch[1]));
+    if (!notification) return sendJson(res, 404, { error: "Notification not found" });
+    notification.status = "read";
+    notification.readAt = new Date().toISOString();
+    await writeNotifications(notifications);
+    sendJson(res, 200, {
+      notification,
+      unreadCount: notifications.filter(item => item.status === "unread").length
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/notifications/read-all") {
+    const notifications = await readNotifications();
+    const now = new Date().toISOString();
+    notifications.forEach(item => {
+      if (item.status === "unread") {
+        item.status = "read";
+        item.readAt = now;
+      }
+    });
+    await writeNotifications(notifications);
+    sendJson(res, 200, { notifications, unreadCount: 0 });
+    return;
+  }
 
   if (req.method === "GET" && url.pathname === "/api/knowledge/files") {
     sendJson(res, 200, { files: await listKnowledgeFiles() });
