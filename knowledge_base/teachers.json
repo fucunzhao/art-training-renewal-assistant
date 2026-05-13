@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "name": "???",
+    "phone": "",
+    "employmentType": "??",
+    "courseTypeIds": [
+      1
+    ],
+    "maxDailyLessons": 6,
+    "notes": "",
+    "source": "??????",
+    "availableTimes": [
+      {
+        "dayOfWeek": 6,
+        "startTime": "09:00",
+        "endTime": "18:00"
+      },
+      {
+        "dayOfWeek": 3,
+        "startTime": "18:00",
+        "endTime": "20:30"
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "???",
+    "phone": "",
+    "employmentType": "??",
+    "courseTypeIds": [
+      1
+    ],
+    "maxDailyLessons": 6,
+    "notes": "",
+    "source": "??????",
+    "availableTimes": []
+  },
+  {
+    "id": 3,
+    "name": "???",
+    "phone": "",
+    "employmentType": "??",
+    "courseTypeIds": [
+      3
+    ],
+    "maxDailyLessons": 5,
+    "notes": "",
+    "source": "??????",
+    "availableTimes": []
+  }
+]

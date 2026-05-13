@@ -2,81 +2,108 @@
   "courseTypes": [
     {
       "id": 1,
-      "name": "少儿创意美术",
-      "category": "美术",
+      "name": "??????",
+      "category": "??",
       "durationMinutes": 90,
       "defaultCapacity": 10,
-      "roomTypes": ["美术教室"],
+      "roomTypes": [
+        "????"
+      ],
       "enabled": true
     },
     {
       "id": 2,
-      "name": "钢琴启蒙",
-      "category": "音乐",
+      "name": "????",
+      "category": "??",
       "durationMinutes": 60,
       "defaultCapacity": 1,
-      "roomTypes": ["钢琴教室"],
+      "roomTypes": [
+        "????"
+      ],
       "enabled": true
     },
     {
       "id": 3,
-      "name": "中国舞三级",
-      "category": "舞蹈",
+      "name": "?????",
+      "category": "??",
       "durationMinutes": 90,
       "defaultCapacity": 16,
-      "roomTypes": ["舞蹈教室"],
+      "roomTypes": [
+        "????"
+      ],
       "enabled": true
     }
   ],
   "classes": [
     {
       "id": 1,
-      "name": "少儿创意美术A班",
+      "name": "??????A?",
       "courseTypeId": 1,
       "teacherId": 1,
-      "studentIds": [1, 4],
+      "studentIds": [
+        1,
+        4
+      ],
       "capacity": 10,
-      "status": "待排课"
+      "status": "???"
     }
   ],
   "teachers": [
     {
       "id": 1,
-      "name": "周老师",
-      "courseTypeIds": [1],
-      "maxDailyLessons": 6
+      "name": "???",
+      "phone": "",
+      "employmentType": "??",
+      "courseTypeIds": [
+        1
+      ],
+      "maxDailyLessons": 6,
+      "notes": "",
+      "source": "??????"
     },
     {
       "id": 2,
-      "name": "唐老师",
-      "courseTypeIds": [1],
-      "maxDailyLessons": 6
+      "name": "???",
+      "phone": "",
+      "employmentType": "??",
+      "courseTypeIds": [
+        1
+      ],
+      "maxDailyLessons": 6,
+      "notes": "",
+      "source": "??????"
     },
     {
       "id": 3,
-      "name": "孟老师",
-      "courseTypeIds": [3],
-      "maxDailyLessons": 5
+      "name": "???",
+      "phone": "",
+      "employmentType": "??",
+      "courseTypeIds": [
+        3
+      ],
+      "maxDailyLessons": 5,
+      "notes": "",
+      "source": "??????"
     }
   ],
   "rooms": [
     {
       "id": 1,
-      "name": "美术教室A",
+      "name": "????A",
       "capacity": 12,
-      "roomType": "美术教室"
+      "roomType": "????"
     },
     {
       "id": 2,
-      "name": "舞蹈教室B",
+      "name": "????B",
       "capacity": 18,
-      "roomType": "舞蹈教室"
+      "roomType": "????"
     },
     {
       "id": 3,
-      "name": "钢琴教室C",
+      "name": "????C",
       "capacity": 2,
-      "roomType": "钢琴教室"
+      "roomType": "????"
     }
   ],
   "teacherAvailability": [

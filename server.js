@@ -11,6 +11,7 @@ const USERS_FILE = path.join(ROOT, "users.json");
 const NOTIFICATIONS_FILE = path.join(ROOT, "notifications.json");
 const SCHEDULE_FILE = path.join(ROOT, "schedule.json");
 const KNOWLEDGE_DIR = path.join(ROOT, "knowledge_base");
+const TEACHERS_KB_FILE = path.join(KNOWLEDGE_DIR, "teachers.json");
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
 const COOKIE_NAME = "mvp_session";
@@ -60,26 +61,44 @@ async function writeNotifications(notifications) {
   await fs.writeFile(NOTIFICATIONS_FILE, `${JSON.stringify(notifications, null, 2)}\n`, "utf8");
 }
 
+async function readTeachersKnowledge(fallback = []) {
+  try {
+    const raw = await fs.readFile(TEACHERS_KB_FILE, "utf8");
+    const teachers = JSON.parse(raw);
+    return Array.isArray(teachers) ? teachers : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function writeTeachersKnowledge(teachers) {
+  await fs.mkdir(KNOWLEDGE_DIR, { recursive: true });
+  await fs.writeFile(TEACHERS_KB_FILE, JSON.stringify(teachers, null, 2) + "\n", "utf8");
+}
+
 async function readSchedule() {
   try {
     const raw = await fs.readFile(SCHEDULE_FILE, "utf8");
     const schedule = JSON.parse(raw);
+    const teachers = await readTeachersKnowledge(schedule.teachers || []);
     return {
       courseTypes: schedule.courseTypes || schedule.courses || [],
       classes: schedule.classes || [],
-      teachers: schedule.teachers || [],
+      teachers,
       rooms: schedule.rooms || [],
       teacherAvailability: schedule.teacherAvailability || [],
       studentAvailability: schedule.studentAvailability || [],
       lessons: schedule.lessons || []
     };
   } catch {
-    return { courseTypes: [], classes: [], teachers: [], rooms: [], teacherAvailability: [], studentAvailability: [], lessons: [] };
+    const teachers = await readTeachersKnowledge([]);
+    return { courseTypes: [], classes: [], teachers, rooms: [], teacherAvailability: [], studentAvailability: [], lessons: [] };
   }
 }
 
 async function writeSchedule(schedule) {
-  await fs.writeFile(SCHEDULE_FILE, `${JSON.stringify(schedule, null, 2)}\n`, "utf8");
+  await writeTeachersKnowledge(schedule.teachers || []);
+  await fs.writeFile(SCHEDULE_FILE, JSON.stringify(schedule, null, 2) + "\n", "utf8");
 }
 
 function parseCookies(req) {
@@ -617,6 +636,50 @@ function detectLessonConflicts(candidate, schedule) {
   return [...new Set(conflicts)];
 }
 
+function normalizeAvailabilitySlots(slots) {
+  return (Array.isArray(slots) ? slots : [])
+    .map(slot => ({
+      dayOfWeek: Number(slot.dayOfWeek),
+      startTime: String(slot.startTime || ""),
+      endTime: String(slot.endTime || "")
+    }))
+    .filter(slot => slot.dayOfWeek && slot.startTime && slot.endTime);
+}
+
+function enrichTeacher(teacher, schedule) {
+  const courseMap = Object.fromEntries(schedule.courseTypes.map(course => [course.id, course.name]));
+  const availability = schedule.teacherAvailability
+    .filter(slot => Number(slot.teacherId) === Number(teacher.id))
+    .map(slot => ({ dayOfWeek: slot.dayOfWeek, startTime: slot.startTime, endTime: slot.endTime }));
+  return {
+    ...teacher,
+    courseNames: (teacher.courseTypeIds || []).map(id => courseMap[Number(id)]).filter(Boolean).join("?"),
+    availableTimes: availability.length ? availability : (teacher.availableTimes || [])
+  };
+}
+
+function createTeacherRecord(body, schedule) {
+  const name = String(body.name || "").trim();
+  if (!name) return { error: "????????" };
+  const courseTypeIds = Array.isArray(body.courseTypeIds)
+    ? body.courseTypeIds.map(Number).filter(Boolean)
+    : String(body.courseTypeIds || "").split(",").map(Number).filter(Boolean);
+  const availableTimes = normalizeAvailabilitySlots(body.availableTimes);
+  const teacher = {
+    id: nextId(schedule.teachers),
+    name,
+    phone: String(body.phone || "").trim(),
+    employmentType: ["??", "??"].includes(body.employmentType) ? body.employmentType : "??",
+    courseTypeIds,
+    maxDailyLessons: toNumber(body.maxDailyLessons, 6),
+    notes: String(body.notes || "").trim(),
+    availableTimes,
+    source: "??????",
+    createdAt: new Date().toISOString()
+  };
+  return { teacher };
+}
+
 async function ensureKnowledgeDir() {
   await fs.mkdir(KNOWLEDGE_DIR, { recursive: true });
 }
@@ -852,6 +915,43 @@ async function handleApi(req, res, url) {
   const students = await readStudents();
   const schedule = await readSchedule();
 
+  if (req.method === "GET" && url.pathname === "/api/teachers") {
+    sendJson(res, 200, { teachers: schedule.teachers.map(teacher => enrichTeacher(teacher, schedule)) });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/teachers") {
+    const body = await readBody(req);
+    const result = createTeacherRecord(body, schedule);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    schedule.teachers.push(result.teacher);
+    for (const slot of result.teacher.availableTimes || []) {
+      schedule.teacherAvailability.push({
+        id: nextId(schedule.teacherAvailability),
+        teacherId: result.teacher.id,
+        dayOfWeek: slot.dayOfWeek,
+        startTime: slot.startTime,
+        endTime: slot.endTime
+      });
+    }
+    await writeSchedule(schedule);
+    sendJson(res, 201, { teacher: enrichTeacher(result.teacher, schedule) });
+    return;
+  }
+
+  const teacherMatch = url.pathname.match(/^\/api\/teachers\/(\d+)$/);
+  if (req.method === "DELETE" && teacherMatch) {
+    const id = Number(teacherMatch[1]);
+    if (schedule.classes.some(item => Number(item.teacherId) === id)) {
+      return sendJson(res, 409, { error: "????????????????????" });
+    }
+    schedule.teachers = schedule.teachers.filter(item => Number(item.id) !== id);
+    schedule.teacherAvailability = schedule.teacherAvailability.filter(item => Number(item.teacherId) !== id);
+    await writeSchedule(schedule);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/schedule/meta") {
     sendJson(res, 200, {
       courseTypes: schedule.courseTypes,
@@ -938,8 +1038,13 @@ async function handleApi(req, res, url) {
       startTime: String(body.startTime || ""),
       endTime: String(body.endTime || "")
     };
-    if (!slot.teacherId || !slot.dayOfWeek || !slot.startTime || !slot.endTime) return sendJson(res, 400, { error: "老师和可授课时间为必填项" });
+    if (!slot.teacherId || !slot.dayOfWeek || !slot.startTime || !slot.endTime) return sendJson(res, 400, { error: "????????????" });
     schedule.teacherAvailability.push(slot);
+    const teacher = schedule.teachers.find(item => Number(item.id) === slot.teacherId);
+    if (teacher) {
+      teacher.availableTimes = normalizeAvailabilitySlots([...(teacher.availableTimes || []), slot]);
+      teacher.updatedAt = new Date().toISOString();
+    }
     await writeSchedule(schedule);
     sendJson(res, 201, { slot });
     return;
