@@ -137,6 +137,74 @@
     <section class="fold-section" data-fold-section="dashboard">
       <button class="fold-header" type="button" aria-expanded="true">
         <div>
+          <p class="eyebrow">教务排课</p>
+          <h2>排课与课消</h2>
+        </div>
+        <span class="fold-meta">安排老师、教室、时间，完成后自动扣课时</span>
+      </button>
+      <div class="fold-body">
+        <section class="schedule-panel" aria-label="排课与课消">
+          <div class="section-title entry-title">
+            <div>
+              <p class="eyebrow">新建课节</p>
+              <h2>安排上课时间</h2>
+            </div>
+            <button id="refreshScheduleButton" type="button">刷新课表</button>
+          </div>
+          <form id="lessonForm" class="lesson-form">
+            <label>
+              课程
+              <select name="courseId" id="lessonCourse"></select>
+            </label>
+            <label>
+              老师
+              <select name="teacherId" id="lessonTeacher"></select>
+            </label>
+            <label>
+              教室
+              <select name="roomId" id="lessonRoom"></select>
+            </label>
+            <label>
+              开始时间
+              <input name="startTime" type="datetime-local" required>
+            </label>
+            <label>
+              结束时间
+              <input name="endTime" type="datetime-local">
+            </label>
+            <label class="wide">
+              学员
+              <select name="studentIds" id="lessonStudents" multiple></select>
+            </label>
+            <div class="form-actions">
+              <button id="checkConflictButton" type="button">检查冲突</button>
+              <button class="primary" type="submit">保存课节</button>
+            </div>
+          </form>
+          <div id="conflictBox" class="conflict-box"></div>
+          <div class="schedule-table-wrap">
+            <table class="schedule-table">
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>课程</th>
+                  <th>老师</th>
+                  <th>教室</th>
+                  <th>学员</th>
+                  <th>状态</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+              <tbody id="lessonList"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="fold-section" data-fold-section="dashboard">
+      <button class="fold-header" type="button" aria-expanded="true">
+        <div>
           <p class="eyebrow">前台看板</p>
           <h2>续费风险工作台</h2>
         </div>

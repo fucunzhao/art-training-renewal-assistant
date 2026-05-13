@@ -9,6 +9,7 @@ const ROOT = __dirname;
 const DATA_FILE = path.join(ROOT, "data.json");
 const USERS_FILE = path.join(ROOT, "users.json");
 const NOTIFICATIONS_FILE = path.join(ROOT, "notifications.json");
+const SCHEDULE_FILE = path.join(ROOT, "schedule.json");
 const KNOWLEDGE_DIR = path.join(ROOT, "knowledge_base");
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
@@ -57,6 +58,19 @@ async function readNotifications() {
 
 async function writeNotifications(notifications) {
   await fs.writeFile(NOTIFICATIONS_FILE, `${JSON.stringify(notifications, null, 2)}\n`, "utf8");
+}
+
+async function readSchedule() {
+  try {
+    const raw = await fs.readFile(SCHEDULE_FILE, "utf8");
+    return JSON.parse(raw);
+  } catch {
+    return { teachers: [], rooms: [], courses: [], lessons: [] };
+  }
+}
+
+async function writeSchedule(schedule) {
+  await fs.writeFile(SCHEDULE_FILE, `${JSON.stringify(schedule, null, 2)}\n`, "utf8");
 }
 
 function parseCookies(req) {
@@ -272,6 +286,81 @@ function createStudent(body, students) {
       proof: buildProof(body)
     }
   };
+}
+
+function dateRangeOverlaps(startA, endA, startB, endB) {
+  return new Date(startA) < new Date(endB) && new Date(startB) < new Date(endA);
+}
+
+function getStudentNames(students, studentIds) {
+  return studentIds
+    .map(id => students.find(student => student.id === Number(id))?.name)
+    .filter(Boolean)
+    .join("、");
+}
+
+function enrichLesson(lesson, schedule, students) {
+  const teacher = schedule.teachers.find(item => item.id === Number(lesson.teacherId));
+  const room = schedule.rooms.find(item => item.id === Number(lesson.roomId));
+  const course = schedule.courses.find(item => item.id === Number(lesson.courseId));
+  return {
+    ...lesson,
+    teacherName: teacher?.name || "未分配老师",
+    roomName: room?.name || "未分配教室",
+    courseName: course?.name || "未设置课程",
+    studentNames: getStudentNames(students, lesson.studentIds || [])
+  };
+}
+
+function detectLessonConflicts(candidate, schedule) {
+  const conflicts = [];
+  const activeLessons = schedule.lessons.filter(lesson => lesson.status !== "cancelled" && lesson.id !== candidate.id);
+  const room = schedule.rooms.find(item => item.id === Number(candidate.roomId));
+  const course = schedule.courses.find(item => item.id === Number(candidate.courseId));
+  const teacher = schedule.teachers.find(item => item.id === Number(candidate.teacherId));
+  const studentIds = (candidate.studentIds || []).map(Number);
+
+  for (const lesson of activeLessons) {
+    if (!dateRangeOverlaps(candidate.startTime, candidate.endTime, lesson.startTime, lesson.endTime)) continue;
+    if (Number(lesson.teacherId) === Number(candidate.teacherId)) conflicts.push("老师同一时间已有课程");
+    if (Number(lesson.roomId) === Number(candidate.roomId)) conflicts.push("教室同一时间已被占用");
+    if ((lesson.studentIds || []).some(id => studentIds.includes(Number(id)))) conflicts.push("学员同一时间已有课程");
+  }
+
+  if (room && studentIds.length > room.capacity) conflicts.push(`教室容量不足，最多 ${room.capacity} 人`);
+  if (room && course && !room.courseTypes.includes(course.name)) conflicts.push("课程类型与教室不匹配");
+  if (teacher && course && teacher.courses.length && !teacher.courses.includes(course.name)) conflicts.push("老师不具备该课程授课资格");
+
+  return [...new Set(conflicts)];
+}
+
+function createLesson(body, schedule) {
+  const course = schedule.courses.find(item => item.id === Number(body.courseId));
+  const startTime = String(body.startTime || "");
+  const endTime = body.endTime
+    ? String(body.endTime)
+    : new Date(new Date(startTime).getTime() + (course?.durationMinutes || 60) * 60_000).toISOString();
+
+  if (!body.courseId || !body.teacherId || !body.roomId || !startTime) return { error: "课程、老师、教室和上课时间为必填项" };
+
+  const studentIds = Array.isArray(body.studentIds)
+    ? body.studentIds.map(Number).filter(Boolean)
+    : String(body.studentIds || "").split(",").map(item => Number(item.trim())).filter(Boolean);
+
+  const nextId = schedule.lessons.reduce((max, lesson) => Math.max(max, lesson.id || 0), 0) + 1;
+  const lesson = {
+    id: nextId,
+    courseId: Number(body.courseId),
+    teacherId: Number(body.teacherId),
+    roomId: Number(body.roomId),
+    studentIds,
+    startTime,
+    endTime,
+    status: "scheduled",
+    createdAt: new Date().toISOString()
+  };
+
+  return { lesson, conflicts: detectLessonConflicts(lesson, schedule) };
 }
 
 async function ensureKnowledgeDir() {
@@ -507,6 +596,82 @@ async function handleApi(req, res, url) {
   }
 
   const students = await readStudents();
+  const schedule = await readSchedule();
+
+  if (req.method === "GET" && url.pathname === "/api/schedule/meta") {
+    sendJson(res, 200, {
+      teachers: schedule.teachers,
+      rooms: schedule.rooms,
+      courses: schedule.courses,
+      students: students.map(student => ({
+        id: student.id,
+        name: student.name,
+        course: student.course,
+        lessonsLeft: student.lessonsLeft
+      }))
+    });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/schedule/lessons") {
+    const lessons = schedule.lessons
+      .map(lesson => enrichLesson(lesson, schedule, students))
+      .sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    sendJson(res, 200, { lessons });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/schedule/conflicts") {
+    const body = await readBody(req);
+    const result = createLesson(body, schedule);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    sendJson(res, 200, { conflicts: result.conflicts });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/schedule/lessons") {
+    const body = await readBody(req);
+    const result = createLesson(body, schedule);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    if (result.conflicts.length && !body.force) {
+      sendJson(res, 409, { error: "存在排课冲突", conflicts: result.conflicts });
+      return;
+    }
+    schedule.lessons.push(result.lesson);
+    await writeSchedule(schedule);
+    sendJson(res, 201, {
+      lesson: enrichLesson(result.lesson, schedule, students),
+      conflicts: result.conflicts
+    });
+    return;
+  }
+
+  const lessonCompleteMatch = url.pathname.match(/^\/api\/schedule\/lessons\/(\d+)\/complete$/);
+  if (req.method === "POST" && lessonCompleteMatch) {
+    const lesson = schedule.lessons.find(item => item.id === Number(lessonCompleteMatch[1]));
+    if (!lesson) return sendJson(res, 404, { error: "Lesson not found" });
+    if (lesson.status === "completed") return sendJson(res, 400, { error: "该课节已完成" });
+
+    const consumed = [];
+    for (const studentId of lesson.studentIds || []) {
+      const student = students.find(item => item.id === Number(studentId));
+      if (!student) continue;
+      student.lessonsLeft = Math.max(0, Number(student.lessonsLeft || 0) - 1);
+      consumed.push({ studentId: student.id, studentName: student.name, lessonsLeft: student.lessonsLeft });
+    }
+
+    lesson.status = "completed";
+    lesson.completedAt = new Date().toISOString();
+    await writeStudents(students);
+    await writeSchedule(schedule);
+    sendJson(res, 200, {
+      lesson: enrichLesson(lesson, schedule, students),
+      consumed,
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      summary: makeSummary(students)
+    });
+    return;
+  }
 
   if (req.method === "GET" && url.pathname === "/api/notifications") {
     const notifications = await readNotifications();

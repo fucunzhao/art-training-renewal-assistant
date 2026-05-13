@@ -12,6 +12,7 @@ COPY styles.css ./
 COPY data.json ./
 COPY users.json ./
 COPY notifications.json ./
+COPY schedule.json ./
 COPY knowledge_base ./knowledge_base
 
 ENV HOST=0.0.0.0

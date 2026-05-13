@@ -2,6 +2,8 @@ const state = {
   students: [],
   knowledgeCandidates: [],
   notifications: [],
+  scheduleMeta: null,
+  lessons: [],
   selectedId: null,
   filter: "all",
   tone: "warm",
@@ -48,6 +50,18 @@ async function loadNotifications() {
   renderNotifications(data.unreadCount);
 }
 
+async function loadScheduleMeta() {
+  const data = await api("/api/schedule/meta");
+  state.scheduleMeta = data;
+  renderScheduleOptions();
+}
+
+async function loadLessons() {
+  const data = await api("/api/schedule/lessons");
+  state.lessons = data.lessons;
+  renderLessons();
+}
+
 function filteredStudents() {
   const query = state.query.trim().toLowerCase();
   return state.students.filter(student => {
@@ -85,6 +99,34 @@ function renderNotifications(unreadCount) {
       </div>
       ${item.status === "unread" ? `<button type="button" data-read-notification="${item.id}">已读</button>` : ""}
     </article>
+  `).join("");
+}
+
+function renderScheduleOptions() {
+  if (!state.scheduleMeta) return;
+  document.getElementById("lessonCourse").innerHTML = state.scheduleMeta.courses.map(course => `<option value="${course.id}">${course.name}</option>`).join("");
+  document.getElementById("lessonTeacher").innerHTML = state.scheduleMeta.teachers.map(teacher => `<option value="${teacher.id}">${teacher.name}</option>`).join("");
+  document.getElementById("lessonRoom").innerHTML = state.scheduleMeta.rooms.map(room => `<option value="${room.id}">${room.name} · ${room.capacity}人</option>`).join("");
+  document.getElementById("lessonStudents").innerHTML = state.scheduleMeta.students.map(student => `<option value="${student.id}">${student.name} · 剩${student.lessonsLeft}节</option>`).join("");
+}
+
+function renderLessons() {
+  const list = document.getElementById("lessonList");
+  if (!state.lessons.length) {
+    list.innerHTML = "<tr><td colspan=\"7\">暂无课节</td></tr>";
+    return;
+  }
+
+  list.innerHTML = state.lessons.map(lesson => `
+    <tr>
+      <td>${new Date(lesson.startTime).toLocaleString("zh-CN")}<br><small>至 ${new Date(lesson.endTime).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</small></td>
+      <td>${lesson.courseName}</td>
+      <td>${lesson.teacherName}</td>
+      <td>${lesson.roomName}</td>
+      <td>${lesson.studentNames || "未添加学员"}</td>
+      <td>${lesson.status === "completed" ? "已完成" : "已排课"}</td>
+      <td>${lesson.status === "completed" ? "" : `<button type="button" data-complete-lesson="${lesson.id}">完成课消</button>`}</td>
+    </tr>
   `).join("");
 }
 
@@ -313,6 +355,64 @@ async function markAllNotificationsRead() {
   renderNotifications(data.unreadCount);
 }
 
+function lessonFormPayload(form) {
+  return {
+    courseId: form.courseId.value,
+    teacherId: form.teacherId.value,
+    roomId: form.roomId.value,
+    startTime: form.startTime.value ? new Date(form.startTime.value).toISOString() : "",
+    endTime: form.endTime.value ? new Date(form.endTime.value).toISOString() : "",
+    studentIds: [...form.studentIds.selectedOptions].map(option => Number(option.value))
+  };
+}
+
+async function checkLessonConflicts() {
+  const form = document.getElementById("lessonForm");
+  const data = await api("/api/schedule/conflicts", {
+    method: "POST",
+    body: JSON.stringify(lessonFormPayload(form))
+  });
+  renderConflicts(data.conflicts);
+}
+
+function renderConflicts(conflicts) {
+  const box = document.getElementById("conflictBox");
+  if (!conflicts.length) {
+    box.className = "conflict-box ok";
+    box.textContent = "未发现冲突，可以保存课节。";
+    return;
+  }
+  box.className = "conflict-box warning";
+  box.innerHTML = `<strong>发现 ${conflicts.length} 个冲突：</strong><ul>${conflicts.map(item => `<li>${item}</li>`).join("")}</ul>`;
+}
+
+async function createLesson(form) {
+  try {
+    const data = await api("/api/schedule/lessons", {
+      method: "POST",
+      body: JSON.stringify(lessonFormPayload(form))
+    });
+    state.lessons = [...state.lessons, data.lesson].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    renderLessons();
+    renderConflicts(data.conflicts);
+    form.reset();
+    showToast("课节已保存");
+  } catch (error) {
+    showToast(error.message);
+    await checkLessonConflicts().catch(() => {});
+  }
+}
+
+async function completeLesson(id) {
+  const data = await api(`/api/schedule/lessons/${id}/complete`, { method: "POST" });
+  state.lessons = state.lessons.map(lesson => lesson.id === data.lesson.id ? data.lesson : lesson);
+  state.students = data.students;
+  renderLessons();
+  renderSummary(data.summary);
+  render();
+  showToast(`已完成课消：${data.consumed.length} 位学员扣课`);
+}
+
 function bindEvents() {
   document.querySelectorAll(".fold-header").forEach(header => {
     header.addEventListener("click", () => {
@@ -339,6 +439,21 @@ function bindEvents() {
     const button = event.target.closest("[data-read-notification]");
     if (!button) return;
     markNotificationRead(button.dataset.readNotification).catch(error => showToast(error.message));
+  });
+  document.getElementById("refreshScheduleButton").addEventListener("click", () => {
+    Promise.all([loadScheduleMeta(), loadLessons()]).then(() => showToast("课表已刷新")).catch(error => showToast(error.message));
+  });
+  document.getElementById("checkConflictButton").addEventListener("click", () => {
+    checkLessonConflicts().catch(error => showToast(error.message));
+  });
+  document.getElementById("lessonForm").addEventListener("submit", event => {
+    event.preventDefault();
+    createLesson(event.currentTarget).catch(error => showToast(error.message));
+  });
+  document.getElementById("lessonList").addEventListener("click", event => {
+    const button = event.target.closest("[data-complete-lesson]");
+    if (!button) return;
+    completeLesson(button.dataset.completeLesson).catch(error => showToast(error.message));
   });
 
   document.getElementById("searchInput").addEventListener("input", event => {
@@ -407,7 +522,7 @@ function render() {
 }
 
 bindEvents();
-Promise.all([loadSession(), loadStudents(), loadNotifications()]).catch(() => {
+Promise.all([loadSession(), loadStudents(), loadNotifications(), loadScheduleMeta(), loadLessons()]).catch(() => {
   showToast("请先登录");
 });
 scanKnowledgeFiles().catch(() => {});
