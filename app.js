@@ -6,6 +6,7 @@
   lessons: [],
   recommendations: [],
   selectedTeacherDates: new Set(),
+  lookupTimer: null,
   selectedId: null,
   filter: "all",
   tone: "warm",
@@ -303,6 +304,43 @@ async function copyText(text, label) {
   }
 }
 
+
+function fillStudentForm(record) {
+  const form = document.getElementById("studentForm");
+  if (!record || !form) return;
+  const fields = ["age", "teacher", "course", "paidAt", "paidAmount", "prepaidLessons", "lessonsLeft", "daysToEnd", "absentRate", "parentReplies", "homeworkMissed", "lastContact"];
+  fields.forEach(name => {
+    if (form[name] && record[name] !== undefined && record[name] !== null && record[name] !== "") form[name].value = record[name];
+  });
+  if (form.renewalValue && record.renewalValue) form.renewalValue.value = record.renewalValue;
+  const latest = [...(record.evidence || [])].reverse().find(item => item.type !== "image") || null;
+  if (latest) {
+    form.proofTitle1.value = latest.title || "";
+    form.proofText1.value = "";
+  }
+}
+
+async function lookupStudentByName(name) {
+  const hint = document.getElementById("studentLookupHint");
+  const query = String(name || "").trim();
+  if (!query) { hint.textContent = "\u8f93\u5165\u59d3\u540d\u540e\uff0c\u5c06\u81ea\u52a8\u4ece\u77e5\u8bc6\u5e93\u7b5b\u9009\u5e76\u56de\u586b\u9ed8\u8ba4\u4fe1\u606f\u3002"; return; }
+  const data = await api(`/api/students/lookup?name=${encodeURIComponent(query)}`);
+  if (!data.matches.length) { hint.textContent = "\u77e5\u8bc6\u5e93\u4e2d\u6682\u65e0\u8be5\u5b66\u5458\uff0c\u53ef\u7ee7\u7eed\u9996\u6b21\u5f55\u5165\u3002"; return; }
+  const exact = data.matches.find(item => item.name === query) || data.matches[0];
+  fillStudentForm(exact);
+  hint.textContent = `\u5df2\u4ece\u77e5\u8bc6\u5e93\u5339\u914d\uff1a${exact.name}\uff0c\u53ef\u76f4\u63a5\u7ef4\u62a4\u5e76\u8ffd\u52a0\u6210\u957f\u8bc1\u636e\u3002`;
+}
+
+function evidenceImagePayload(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve(null);
+    if (file.size > 1024 * 1024) return reject(new Error("\u6210\u957f\u8bc1\u636e\u56fe\u7247\u4e0d\u80fd\u8d85\u8fc7 1M"));
+    const reader = new FileReader();
+    reader.onload = () => resolve({ title: file.name, dataUrl: reader.result });
+    reader.onerror = () => reject(new Error("\u56fe\u7247\u8bfb\u53d6\u5931\u8d25"));
+    reader.readAsDataURL(file);
+  });
+}
 async function updateStatus(status) {
   const student = selectedStudent();
   if (!student) return;
@@ -315,20 +353,28 @@ async function updateStatus(status) {
 
 async function createStudent(form) {
   const body = Object.fromEntries(new FormData(form).entries());
+  body.evidenceImage = await evidenceImagePayload(form.evidenceImage.files?.[0]);
+  body.renewalValue = body.paidAmount;
+  if (!body.lessonsLeft && body.prepaidLessons) body.lessonsLeft = body.prepaidLessons;
   const data = await api("/api/students", { method: "POST", body: JSON.stringify(body) });
-  state.students = [data.student, ...state.students].sort((a, b) => b.riskScore - a.riskScore);
+  state.students = data.isUpdate
+    ? state.students.map(item => item.id === data.student.id ? data.student : item)
+    : [data.student, ...state.students];
+  state.students = state.students.sort((a, b) => b.riskScore - a.riskScore);
   state.selectedId = data.student.id;
   renderSummary(data.summary);
   render();
   form.reset();
-  form.lessonsLeft.value = 4;
-  form.daysToEnd.value = 14;
+  form.paidAmount.value = 3980;
+  form.prepaidLessons.value = 24;
+  form.lessonsLeft.value = 24;
+  form.daysToEnd.value = 60;
   form.absentRate.value = 0;
   form.parentReplies.value = 1;
   form.homeworkMissed.value = 0;
-  form.renewalValue.value = 3980;
-  form.lastContact.value = "未联系";
-  showToast("学员已保存");
+  form.lastContact.value = "\u672a\u8054\u7cfb";
+  document.getElementById("studentLookupHint").textContent = "\u8f93\u5165\u59d3\u540d\u540e\uff0c\u5c06\u81ea\u52a8\u4ece\u77e5\u8bc6\u5e93\u7b5b\u9009\u5e76\u56de\u586b\u9ed8\u8ba4\u4fe1\u606f\u3002";
+  showToast(data.isUpdate ? "\u5b66\u5458\u6863\u6848\u5df2\u66f4\u65b0\uff0c\u6210\u957f\u8bc1\u636e\u5df2\u8ffd\u52a0" : "\u5b66\u5458\u6863\u6848\u5df2\u4fdd\u5b58\u5230\u77e5\u8bc6\u5e93");
 }
 
 function teacherPayload(form) {
@@ -548,6 +594,7 @@ function bindEvents() {
   document.getElementById("markContactedButton").addEventListener("click", () => updateStatus("已跟进"));
   document.getElementById("markRenewedButton").addEventListener("click", () => updateStatus("已续费"));
   document.getElementById("studentForm").addEventListener("submit", event => { event.preventDefault(); createStudent(event.currentTarget).catch(error => showToast(error.message)); });
+  document.getElementById("studentNameInput").addEventListener("input", event => { clearTimeout(state.lookupTimer); state.lookupTimer = setTimeout(() => lookupStudentByName(event.target.value).catch(error => showToast(error.message)), 350); });
   document.getElementById("resetStudentForm").addEventListener("click", () => document.getElementById("studentForm").reset());
   document.getElementById("scanKnowledgeButton").addEventListener("click", () => scanKnowledgeFiles().catch(error => showToast(error.message)));
   document.getElementById("uploadKnowledgeButton").addEventListener("click", () => uploadKnowledgeFile().catch(error => showToast(error.message)));

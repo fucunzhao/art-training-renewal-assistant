@@ -42,21 +42,26 @@
             <span>提交后自动进入续费风险看板</span>
           </div>
           <form id="studentForm" class="student-form">
-            <label>学员姓名<input name="name" required placeholder="例如：李安然"></label>
-            <label>课程<input name="course" required placeholder="例如：少儿美术基础"></label>
-            <label>负责老师<input name="teacher" required placeholder="例如：王老师"></label>
-            <label>剩余课时<input name="lessonsLeft" type="number" min="0" value="4"></label>
-            <label>预计课消天数<input name="daysToEnd" type="number" min="0" value="14"></label>
-            <label>近月缺勤率 %<input name="absentRate" type="number" min="0" max="100" value="0"></label>
-            <label>家长近两周回复次数<input name="parentReplies" type="number" min="0" value="1"></label>
-            <label>作业缺交次数<input name="homeworkMissed" type="number" min="0" value="0"></label>
-            <label>续费金额<input name="renewalValue" type="number" min="0" value="3980"></label>
-            <label>最近联系<input name="lastContact" placeholder="例如：3天前" value="未联系"></label>
-            <label class="wide">成长证据 1<input name="proofTitle1" placeholder="标题，例如：线条控制"><textarea name="proofText1" rows="2" placeholder="具体表现，例如：能独立完成轮廓和比例调整。"></textarea></label>
-            <label class="wide">成长证据 2<input name="proofTitle2" placeholder="标题，例如：课堂状态"><textarea name="proofText2" rows="2" placeholder="具体表现，例如：专注时间提升，愿意表达创作想法。"></textarea></label>
+            <label>????<input name="name" id="studentNameInput" required placeholder="????????????"></label>
+            <label>??<input name="age" type="number" min="2" max="80" placeholder="???8"></label>
+            <label>????<input name="teacher" required placeholder="??????"></label>
+            <label>??<input name="course" placeholder="?????????"></label>
+            <label>????<input name="paidAt" type="date"></label>
+            <label>????<input name="paidAmount" type="number" min="0" value="3980"></label>
+            <label>??????<input name="prepaidLessons" type="number" min="0" value="24"></label>
+            <label>????<input name="lessonsLeft" type="number" min="0" value="24"></label>
+            <label>??????<input name="daysToEnd" type="number" min="0" value="60"></label>
+            <label>????? %<input name="absentRate" type="number" min="0" max="100" value="0"></label>
+            <label>?????????<input name="parentReplies" type="number" min="0" value="1"></label>
+            <label>??????<input name="homeworkMissed" type="number" min="0" value="0"></label>
+            <label>????<input name="lastContact" placeholder="???3??" value="???"></label>
+            <label class="wide">??????<input name="proofTitle1" placeholder="??????????????????"></label>
+            <label class="wide">??????<textarea name="proofText1" rows="3" placeholder="????????????????"></textarea></label>
+            <label class="wide">??????????1M?<input name="evidenceImage" id="evidenceImage" type="file" accept="image/png,image/jpeg,image/webp"></label>
+            <p id="studentLookupHint" class="knowledge-path wide">???????????????????????</p>
             <div class="form-actions wide">
-              <button class="primary" type="submit">保存学员</button>
-              <button id="resetStudentForm" type="button">清空</button>
+              <button class="primary" type="submit">??/????</button>
+              <button id="resetStudentForm" type="button">??</button>
             </div>
           </form>
         </section>

@@ -12,6 +12,8 @@ const NOTIFICATIONS_FILE = path.join(ROOT, "notifications.json");
 const SCHEDULE_FILE = path.join(ROOT, "schedule.json");
 const KNOWLEDGE_DIR = path.join(ROOT, "knowledge_base");
 const TEACHERS_KB_FILE = path.join(KNOWLEDGE_DIR, "teachers.json");
+const STUDENTS_KB_FILE = path.join(KNOWLEDGE_DIR, "students.json");
+const STUDENT_ASSET_DIR = path.join(KNOWLEDGE_DIR, "student_assets");
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
 const COOKIE_NAME = "mvp_session";
@@ -76,6 +78,91 @@ async function writeTeachersKnowledge(teachers) {
   await fs.writeFile(TEACHERS_KB_FILE, JSON.stringify(teachers, null, 2) + "\n", "utf8");
 }
 
+
+async function readStudentsKnowledge(fallback = []) {
+  try {
+    const raw = await fs.readFile(STUDENTS_KB_FILE, "utf8");
+    const records = JSON.parse(raw);
+    return Array.isArray(records) ? records : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+async function writeStudentsKnowledge(records) {
+  await fs.mkdir(KNOWLEDGE_DIR, { recursive: true });
+  await fs.writeFile(STUDENTS_KB_FILE, JSON.stringify(records, null, 2) + "\n", "utf8");
+}
+
+function normalizeStudentName(name) {
+  return String(name || "").trim().toLowerCase();
+}
+
+function studentKnowledgeFromStudent(student) {
+  return {
+    id: student.id,
+    name: student.name,
+    age: student.age || "",
+    teacher: student.teacher || "",
+    course: student.course || "",
+    paidAt: student.paidAt || "",
+    paidAmount: Number(student.paidAmount ?? student.renewalValue ?? 0),
+    prepaidLessons: Number(student.prepaidLessons ?? student.lessonsLeft ?? 0),
+    lessonsLeft: Number(student.lessonsLeft ?? student.prepaidLessons ?? 0),
+    daysToEnd: Number(student.daysToEnd ?? 30),
+    renewalValue: Number(student.renewalValue ?? student.paidAmount ?? 0),
+    lastContact: student.lastContact || "???",
+    status: student.status || "???",
+    proof: Array.isArray(student.proof) ? student.proof : [],
+    evidence: Array.isArray(student.evidence) ? student.evidence : [],
+    updatedAt: new Date().toISOString()
+  };
+}
+
+async function syncStudentKnowledge(student) {
+  const records = await readStudentsKnowledge([]);
+  const key = normalizeStudentName(student.name);
+  const index = records.findIndex(item => normalizeStudentName(item.name) === key);
+  const next = { ...(index >= 0 ? records[index] : {}), ...studentKnowledgeFromStudent(student) };
+  if (index >= 0) records[index] = next; else records.unshift(next);
+  await writeStudentsKnowledge(records);
+  return next;
+}
+
+function normalizeEvidenceItems(body) {
+  const items = [];
+  for (let index = 1; index <= 3; index += 1) {
+    const title = String(body[`proofTitle${index}`] || "").trim();
+    const text = String(body[`proofText${index}`] || "").trim();
+    if (title || text) {
+      items.push({ type: "text", title: title || `????${index}`, text, createdAt: new Date().toISOString() });
+    }
+  }
+  if (Array.isArray(body.evidence)) items.push(...body.evidence);
+  return items;
+}
+
+async function saveEvidenceImage(studentName, image) {
+  if (!image || !image.dataUrl) return null;
+  const match = String(image.dataUrl).match(/^data:(image\/(png|jpeg|jpg|webp));base64,(.+)$/i);
+  if (!match) throw new Error("??? PNG?JPG?WEBP ??");
+  const buffer = Buffer.from(match[3], "base64");
+  if (buffer.length > 1024 * 1024) throw new Error("?????? 1M");
+  await fs.mkdir(STUDENT_ASSET_DIR, { recursive: true });
+  const ext = match[2].toLowerCase() === "jpeg" ? "jpg" : match[2].toLowerCase();
+  const safeName = String(studentName || "student").replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, "_");
+  const fileName = `${safeName}-${Date.now()}.${ext}`;
+  const relativePath = `knowledge_base/student_assets/${fileName}`;
+  await fs.writeFile(path.join(STUDENT_ASSET_DIR, fileName), buffer);
+  return { type: "image", title: image.title || "??????", fileName, path: relativePath, size: buffer.length, createdAt: new Date().toISOString() };
+}
+
+async function buildEvidence(body, studentName) {
+  const evidence = normalizeEvidenceItems(body);
+  const image = await saveEvidenceImage(studentName, body.evidenceImage);
+  if (image) evidence.push(image);
+  return evidence;
+}
 async function readSchedule() {
   try {
     const raw = await fs.readFile(SCHEDULE_FILE, "utf8");
@@ -278,42 +365,39 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function buildProof(body) {
-  const proof = [];
-  for (let index = 1; index <= 3; index += 1) {
-    const title = String(body[`proofTitle${index}`] || "").trim();
-    const text = String(body[`proofText${index}`] || "").trim();
-    if (title || text) proof.push([title || `成长点${index}`, text || "待补充具体课堂表现。"]);
-  }
-  return proof.length ? proof : [["课堂表现", "已录入基础信息，后续可补充作品、练习或测评记录。"]];
+function evidenceToProof(evidence) {
+  const textEvidence = (Array.isArray(evidence) ? evidence : []).filter(item => item.type !== "image");
+  if (!textEvidence.length) return [["????", "??????????????????????????"]];
+  return textEvidence.map(item => [item.title || "????", item.text || item.path || "?????"]);
 }
 
-function createStudent(body, students) {
-  const required = ["name", "course", "teacher"];
-  for (const key of required) {
-    if (!String(body[key] || "").trim()) {
-      return { error: "姓名、课程、老师为必填项" };
-    }
-  }
-
-  const nextId = students.reduce((max, student) => Math.max(max, student.id), 0) + 1;
-  return {
-    student: {
-      id: nextId,
-      name: String(body.name).trim(),
-      course: String(body.course).trim(),
-      teacher: String(body.teacher).trim(),
-      lessonsLeft: toNumber(body.lessonsLeft, 0),
-      daysToEnd: toNumber(body.daysToEnd, 30),
-      absentRate: toNumber(body.absentRate, 0),
-      parentReplies: toNumber(body.parentReplies, 0),
-      homeworkMissed: toNumber(body.homeworkMissed, 0),
-      renewalValue: toNumber(body.renewalValue, 0),
-      lastContact: String(body.lastContact || "未联系").trim(),
-      status: "待跟进",
-      proof: buildProof(body)
-    }
-  };
+async function createStudent(body, students) {
+  const name = String(body.name || "").trim();
+  if (!name) return { error: "????????" };
+  const existing = students.find(student => normalizeStudentName(student.name) === normalizeStudentName(name));
+  const evidence = await buildEvidence(body, name);
+  const previousEvidence = existing?.evidence || [];
+  const mergedEvidence = [...previousEvidence, ...evidence];
+  const student = existing || { id: students.reduce((max, item) => Math.max(max, item.id || 0), 0) + 1 };
+  student.name = name;
+  student.age = String(body.age || student.age || "").trim();
+  student.course = String(body.course || student.course || "?????").trim();
+  student.teacher = String(body.teacher || student.teacher || "?????").trim();
+  student.paidAt = String(body.paidAt || student.paidAt || "").trim();
+  student.paidAmount = toNumber(body.paidAmount, toNumber(student.paidAmount, 0));
+  student.prepaidLessons = toNumber(body.prepaidLessons, toNumber(student.prepaidLessons, toNumber(student.lessonsLeft, 0)));
+  student.lessonsLeft = toNumber(body.lessonsLeft, student.prepaidLessons);
+  student.daysToEnd = toNumber(body.daysToEnd, toNumber(student.daysToEnd, 30));
+  student.absentRate = toNumber(body.absentRate, toNumber(student.absentRate, 0));
+  student.parentReplies = toNumber(body.parentReplies, toNumber(student.parentReplies, 0));
+  student.homeworkMissed = toNumber(body.homeworkMissed, toNumber(student.homeworkMissed, 0));
+  student.renewalValue = toNumber(body.renewalValue, student.paidAmount);
+  student.lastContact = String(body.lastContact || student.lastContact || "???").trim();
+  student.status = existing?.status || "???";
+  student.evidence = mergedEvidence;
+  student.proof = evidenceToProof(mergedEvidence);
+  student.updatedAt = new Date().toISOString();
+  return { student, isUpdate: Boolean(existing) };
 }
 
 function dateRangeOverlaps(startA, endA, startB, endB) {
@@ -1205,6 +1289,10 @@ async function handleApi(req, res, url) {
     lesson.status = "completed";
     lesson.completedAt = new Date().toISOString();
     await writeStudents(students);
+    for (const item of consumed) {
+      const student = students.find(entry => entry.id === item.studentId);
+      if (student) await syncStudentKnowledge(student);
+    }
     await writeSchedule(schedule);
     sendJson(res, 200, {
       lesson: enrichLesson(lesson, schedule, students),
@@ -1308,7 +1396,7 @@ async function handleApi(req, res, url) {
     const imported = [];
 
     for (const candidate of candidates) {
-      const result = createStudent({
+      const result = await createStudent({
         ...candidate,
         proofTitle1: candidate.proof?.[0]?.[0],
         proofText1: candidate.proof?.[0]?.[1],
@@ -1318,7 +1406,8 @@ async function handleApi(req, res, url) {
         proofText3: candidate.proof?.[2]?.[1]
       }, students);
       if (!result.error) {
-        students.push(result.student);
+        if (!result.isUpdate) students.push(result.student);
+        await syncStudentKnowledge(result.student);
         imported.push(enrichStudent(result.student));
       }
     }
@@ -1328,6 +1417,16 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (req.method === "GET" && url.pathname === "/api/students/lookup") {
+    const name = normalizeStudentName(url.searchParams.get("name") || "");
+    if (!name) return sendJson(res, 200, { matches: [] });
+    const knowledge = await readStudentsKnowledge(students.map(studentKnowledgeFromStudent));
+    const matches = knowledge
+      .filter(item => normalizeStudentName(item.name).includes(name))
+      .slice(0, 8);
+    sendJson(res, 200, { matches });
+    return;
+  }
   if (req.method === "GET" && url.pathname === "/api/students") {
     const enriched = students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore);
     sendJson(res, 200, { students: enriched, summary: makeSummary(students) });
@@ -1336,12 +1435,16 @@ async function handleApi(req, res, url) {
 
   if (req.method === "POST" && url.pathname === "/api/students") {
     const body = await readBody(req);
-    const result = createStudent(body, students);
-    if (result.error) return sendJson(res, 400, { error: result.error });
-
-    students.push(result.student);
-    await writeStudents(students);
-    sendJson(res, 201, { student: enrichStudent(result.student), summary: makeSummary(students) });
+    try {
+      const result = await createStudent(body, students);
+      if (result.error) return sendJson(res, 400, { error: result.error });
+      if (!result.isUpdate) students.push(result.student);
+      await writeStudents(students);
+      await syncStudentKnowledge(result.student);
+      sendJson(res, result.isUpdate ? 200 : 201, { student: enrichStudent(result.student), summary: makeSummary(students), isUpdate: result.isUpdate });
+    } catch (error) {
+      sendJson(res, 400, { error: error.message });
+    }
     return;
   }
 
@@ -1373,6 +1476,7 @@ async function handleApi(req, res, url) {
     }
 
     await writeStudents(students);
+    await syncStudentKnowledge(student);
     sendJson(res, 200, { student: enrichStudent(student), summary: makeSummary(students) });
     return;
   }
