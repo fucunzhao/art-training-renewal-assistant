@@ -812,7 +812,7 @@ function createTeacherRecord(body, schedule) {
     id: nextId(schedule.teachers),
     name,
     phone: String(body.phone || "").trim(),
-    employmentType: ["??", "??"].includes(body.employmentType) ? body.employmentType : "??",
+    employmentType: ["\u5168\u804c", "\u517c\u804c"].includes(body.employmentType) ? body.employmentType : "\u5168\u804c",
     courseTypeIds,
     maxDailyLessons: toNumber(body.maxDailyLessons, 6),
     notes: String(body.notes || "").trim(),

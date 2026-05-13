@@ -1,52 +1,44 @@
 [
   {
     "id": 1,
-    "name": "???",
-    "phone": "",
-    "employmentType": "??",
-    "courseTypeIds": [
-      1
-    ],
+    "name": "\u5468\u8001\u5e08",
+    "phone": "13800000000",
+    "employmentType": "\u5168\u804c",
+    "courseTypeIds": [1],
     "maxDailyLessons": 6,
-    "notes": "",
-    "source": "??????",
+    "notes": "\u64c5\u957f\u4f4e\u9f84\u542f\u8499\uff0c\u53ef\u5e26\u4f53\u9a8c\u8bfe\u3002",
+    "source": "\u540e\u53f0\u6559\u5e08\u5f55\u5165",
+    "availableDates": [],
+    "periods": [],
     "availableTimes": [
-      {
-        "dayOfWeek": 6,
-        "startTime": "09:00",
-        "endTime": "18:00"
-      },
-      {
-        "dayOfWeek": 3,
-        "startTime": "18:00",
-        "endTime": "20:30"
-      }
+      { "dayOfWeek": 6, "startTime": "09:00", "endTime": "18:00" },
+      { "dayOfWeek": 3, "startTime": "18:00", "endTime": "20:30" }
     ]
   },
   {
     "id": 2,
-    "name": "???",
-    "phone": "",
-    "employmentType": "??",
-    "courseTypeIds": [
-      1
-    ],
-    "maxDailyLessons": 6,
-    "notes": "",
-    "source": "??????",
+    "name": "\u674e\u8001\u5e08",
+    "phone": "13900000000",
+    "employmentType": "\u517c\u804c",
+    "courseTypeIds": [1],
+    "maxDailyLessons": 4,
+    "notes": "\u5468\u672b\u548c\u665a\u95f4\u65f6\u6bb5\u66f4\u7a33\u5b9a\u3002",
+    "source": "\u540e\u53f0\u6559\u5e08\u5f55\u5165",
+    "availableDates": [],
+    "periods": [],
     "availableTimes": []
   },
   {
     "id": 3,
-    "name": "???",
-    "phone": "",
-    "employmentType": "??",
-    "courseTypeIds": [
-      3
-    ],
+    "name": "\u738b\u8001\u5e08",
+    "phone": "13700000000",
+    "employmentType": "\u5168\u804c",
+    "courseTypeIds": [3],
     "maxDailyLessons": 5,
-    "notes": "",
-    "source": "??????",
+    "notes": "\u64c5\u957f\u7d20\u63cf\u548c\u8272\u5f69\u8fdb\u9636\u8bfe\u3002",
+    "source": "\u540e\u53f0\u6559\u5e08\u5f55\u5165",
+    "availableDates": [],
+    "periods": [],
     "availableTimes": []
   }
 ]

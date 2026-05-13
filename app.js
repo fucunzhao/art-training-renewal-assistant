@@ -1,4 +1,4 @@
-﻿const state = {
+const state = {
   students: [],
   knowledgeCandidates: [],
   notifications: [],
@@ -165,6 +165,17 @@ function shiftTeacherMonth(delta) {
   const [year, month] = (input.value || monthValue()).split("-").map(Number);
   const date = new Date(year, month - 1 + delta, 1);
   input.value = monthValue(date);
+  renderTeacherCalendar();
+}
+
+function selectCurrentTeacherMonth() {
+  const input = document.getElementById("teacherMonth");
+  if (!input.value) input.value = monthValue();
+  const [year, month] = input.value.split("-").map(Number);
+  const days = new Date(year, month, 0).getDate();
+  for (let day = 1; day <= days; day += 1) {
+    state.selectedTeacherDates.add(`${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`);
+  }
   renderTeacherCalendar();
 }
 function renderCourseTypes() {
@@ -573,6 +584,7 @@ function bindEvents() {
   document.getElementById("teacherMonth").addEventListener("change", renderTeacherCalendar);
   document.getElementById("prevTeacherMonth").addEventListener("click", () => shiftTeacherMonth(-1));
   document.getElementById("nextTeacherMonth").addEventListener("click", () => shiftTeacherMonth(1));
+  document.getElementById("selectTeacherMonth").addEventListener("click", selectCurrentTeacherMonth);
   document.getElementById("teacherCalendar").addEventListener("click", event => { const button = event.target.closest("[data-date]"); if (!button) return; const date = button.dataset.date; state.selectedTeacherDates.has(date) ? state.selectedTeacherDates.delete(date) : state.selectedTeacherDates.add(date); renderTeacherCalendar(); });
   document.getElementById("teacherList").addEventListener("click", event => { const button = event.target.closest("[data-delete-teacher]"); if (button) deleteTeacher(button.dataset.deleteTeacher).catch(error => showToast(error.message)); });
   document.getElementById("refreshScheduleButton").addEventListener("click", () => Promise.all([loadScheduleMeta(), loadLessons()]).then(() => showToast("排课数据已刷新")).catch(error => showToast(error.message)));
