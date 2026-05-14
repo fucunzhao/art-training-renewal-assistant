@@ -224,30 +224,30 @@ function getRiskScore(student) {
 }
 
 function getRiskLevel(score) {
-  if (score >= 72) return { text: "高风险", className: "risk-high" };
-  if (score >= 50) return { text: "中风险", className: "risk-mid" };
-  return { text: "低风险", className: "risk-low" };
+  if (score >= 72) return { text: "\u9ad8\u98ce\u9669", className: "risk-high" };
+  if (score >= 50) return { text: "\u4e2d\u98ce\u9669", className: "risk-mid" };
+  return { text: "\u4f4e\u98ce\u9669", className: "risk-low" };
 }
 
 function getReasons(student) {
   const reasons = [];
-  if (student.daysToEnd <= 14) reasons.push(`预计 ${student.daysToEnd} 天内课消结束，需要提前锁定续费窗口。`);
-  if (student.lessonsLeft <= 3) reasons.push(`剩余 ${student.lessonsLeft} 节课，已经进入续费关键期。`);
-  if (student.absentRate >= 25) reasons.push(`近月缺勤率 ${student.absentRate}%，学习连续性变弱。`);
-  if (student.parentReplies <= 1) reasons.push("家长近两周互动偏少，可能没有充分感知孩子进步。");
-  if (student.homeworkMissed >= 2) reasons.push(`课后练习缺交 ${student.homeworkMissed} 次，需要降低家庭配合阻力。`);
-  if (!reasons.length) reasons.push("学习节奏稳定，可安排常规续费沟通和下一阶段目标确认。");
+  if (student.daysToEnd <= 14) reasons.push(`\u8ddd\u79bb\u8bfe\u5305\u7ed3\u675f\u8fd8\u6709 ${student.daysToEnd} \u5929\uff0c\u9700\u8981\u63d0\u524d\u8fdb\u5165\u7eed\u8d39\u6c9f\u901a\u3002`);
+  if (student.lessonsLeft <= 3) reasons.push(`\u5269\u4f59\u8bfe\u65f6\u4ec5 ${student.lessonsLeft} \u8282\uff0c\u5df2\u63a5\u8fd1\u8bfe\u5305\u672b\u7aef\u3002`);
+  if (student.absentRate >= 25) reasons.push(`\u8fd1\u6708\u7f3a\u52e4\u7387 ${student.absentRate}%\uff0c\u9700\u5173\u6ce8\u5b66\u4e60\u7a33\u5b9a\u6027\u3002`);
+  if (student.parentReplies <= 1) reasons.push("\u5bb6\u957f\u8fd1\u671f\u4e92\u52a8\u504f\u5c11\uff0c\u5efa\u8bae\u8865\u5145\u6210\u957f\u8bc1\u636e\u540e\u56de\u8bbf\u3002");
+  if (student.homeworkMissed >= 2) reasons.push(`\u4f5c\u4e1a\u7f3a\u4ea4 ${student.homeworkMissed} \u6b21\uff0c\u53ef\u80fd\u5f71\u54cd\u5bb6\u957f\u5bf9\u6548\u679c\u7684\u611f\u77e5\u3002`);
+  if (!reasons.length) reasons.push("\u5f53\u524d\u7eed\u8d39\u98ce\u9669\u8f83\u4f4e\uff0c\u4fdd\u6301\u5e38\u89c4\u5b66\u60c5\u7ef4\u62a4\u3002");
   return reasons;
 }
 
 function getNextAction(student, score) {
   if (score >= 72) {
-    return `今天由 ${student.teacher} 先发成长反馈，前台 24 小时内邀约家长做 10 分钟阶段沟通。`;
+    return `\u5efa\u8bae ${student.teacher} \u548c\u8fd0\u8425\u5728 24 \u5c0f\u65f6\u5185\u5b8c\u6210\u8054\u5408\u56de\u8bbf\uff0c\u5148\u8865\u5145\u6210\u957f\u8bc1\u636e\uff0c\u518d\u63d0\u51fa\u7eed\u8d39\u65b9\u6848\u3002`;
   }
   if (student.daysToEnd <= 14) {
-    return "本周发送阶段作品/课堂表现总结，并给出下一期明确目标与名额提醒。";
+    return "\u672c\u5468\u5b89\u6392\u4e00\u6b21\u5b66\u60c5\u56de\u8bbf\uff0c\u540c\u6b65\u786e\u8ba4\u4e0b\u9636\u6bb5\u8bfe\u7a0b\u76ee\u6807\u3002";
   }
-  return "维持每周一次高质量反馈，提前铺垫下一阶段学习目标。";
+  return "\u7ee7\u7eed\u7ef4\u62a4\u5b66\u60c5\u8bb0\u5f55\uff0c\u6bcf\u5468\u8865\u5145\u4e00\u6b21\u6210\u957f\u8bc1\u636e\u3002";
 }
 
 function enrichStudent(student) {
@@ -262,14 +262,14 @@ function enrichStudent(student) {
 }
 
 function makeMessage(student, tone = "warm") {
-  const proof = student.proof.map(item => `${item[0]}：${item[1]}`).join("\n");
+  const proof = student.proof.map(item => `${item[0]}\uff1a${item[1]}`).join("\n");
   if (tone === "direct") {
-    return `${student.name}家长您好，我看了一下孩子目前的学习进度，课程预计还有 ${student.daysToEnd} 天左右结束。建议我们这周确认下一阶段安排，避免中断后影响连续性。\n\n这阶段比较明显的进步：\n${proof}\n\n我建议下一期重点放在“稳定能力 + 完整作品/曲目/舞台呈现”上。您方便今天或明天抽 10 分钟，我们把续课方案和目标对齐一下吗？`;
+    return `${student.name}\u5bb6\u957f\u60a8\u597d\uff0c\u6211\u4eec\u6574\u7406\u4e86\u5b69\u5b50\u8fd1\u671f\u7684\u5b66\u4e60\u60c5\u51b5\uff1a\n${proof}\n\n\u76ee\u524d\u5269\u4f59 ${student.lessonsLeft} \u8282\u8bfe\uff0c\u5efa\u8bae\u63d0\u524d\u786e\u8ba4\u4e0b\u4e00\u9636\u6bb5\u5b66\u4e60\u5b89\u6392\u3002`;
   }
   if (tone === "premium") {
-    return `${student.name}家长您好，孩子这段时间已经不只是完成课堂内容，而是进入到更需要系统打磨的阶段了。\n\n我整理了三点变化：\n${proof}\n\n如果接下来课程不断档，我们可以把下一阶段目标设计得更完整：一方面巩固基础能力，另一方面形成可展示的作品/曲目/节目成果。建议我们为孩子预留下一期名额，并安排一次阶段规划沟通。`;
+    return `${student.name}\u5bb6\u957f\u60a8\u597d\uff0c\u8fd9\u6bb5\u65f6\u95f4\u5b69\u5b50\u5df2\u7ecf\u8fdb\u5165\u66f4\u9700\u8981\u7cfb\u7edf\u6253\u78e8\u7684\u9636\u6bb5\u3002\n\n\u6211\u4eec\u6574\u7406\u4e86\u51e0\u70b9\u53d8\u5316\uff1a\n${proof}\n\n\u63a5\u4e0b\u6765\u53ef\u4ee5\u4e3a\u5b69\u5b50\u8bbe\u8ba1\u66f4\u5b8c\u6574\u7684\u9636\u6bb5\u76ee\u6807\uff0c\u5efa\u8bae\u9884\u7559\u4e0b\u4e00\u671f\u540d\u989d\u5e76\u5b89\u6392\u4e00\u6b21\u89c4\u5212\u6c9f\u901a\u3002`;
   }
-  return `${student.name}家长您好，今天想和您同步一下孩子最近的学习变化。孩子这段时间有几个地方进步挺明显：\n\n${proof}\n\n目前课程还剩 ${student.lessonsLeft} 节，预计 ${student.daysToEnd} 天左右进入新阶段。我建议我们提前聊一下后面的学习目标，这样孩子的状态能接得更顺。您这两天什么时候方便，我和您简单沟通 10 分钟？`;
+  return `${student.name}\u5bb6\u957f\u60a8\u597d\uff0c\u548c\u60a8\u540c\u6b65\u4e00\u4e0b\u5b69\u5b50\u8fd1\u671f\u7684\u5b66\u4e60\u60c5\u51b5\uff1a\n\n${proof}\n\n\u76ee\u524d\u8fd8\u6709 ${student.lessonsLeft} \u8282\u8bfe\uff0c\u8ddd\u79bb\u8bfe\u5305\u7ed3\u675f\u7ea6 ${student.daysToEnd} \u5929\u3002\u6211\u4eec\u5efa\u8bae\u63d0\u524d\u89c4\u5212\u4e0b\u4e00\u9636\u6bb5\u7684\u5b66\u4e60\u76ee\u6807\uff0c\u8ba9\u8bfe\u7a0b\u8854\u63a5\u66f4\u987a\u3002`;
 }
 
 function makeSummary(students) {
@@ -332,7 +332,7 @@ async function createHighRiskNotifications(students) {
     if (duplicate) continue;
 
     const content = renderTemplate(
-      "{{studentName}} 剩余 {{lessonsLeft}} 节课，风险分 {{riskScore}}。建议：{{nextAction}}",
+      "{{studentName}} \u5269\u4f59 {{lessonsLeft}} \u8282\u8bfe\uff0c\u98ce\u9669\u5206 {{riskScore}}\u3002{{nextAction}}",
       {
         studentName: student.name,
         lessonsLeft: student.lessonsLeft,
@@ -342,10 +342,10 @@ async function createHighRiskNotifications(students) {
     );
 
     const notification = createNotificationRecord(notifications, {
-      title: `高风险学员：${student.name}`,
+      title: `\u9ad8\u98ce\u9669\u7eed\u8d39\u63d0\u9192\uff1a${student.name}`,
       content,
       type: "student.renewal_risk_high",
-      targetRole: "前台"
+      targetRole: "\u8fd0\u8425"
     });
     notification.studentId = student.id;
     created.push(notification);
@@ -354,7 +354,7 @@ async function createHighRiskNotifications(students) {
   await writeNotifications(notifications);
 
   if (created.length) {
-    await sendWechatWorkMessage(`续费风险提醒：今日新增 ${created.length} 位高风险学员待跟进。`);
+    await sendWechatWorkMessage(`\u7eed\u8d39\u98ce\u9669\u63d0\u9192\uff1a\u4eca\u65e5\u65b0\u589e ${created.length} \u4f4d\u9ad8\u98ce\u9669\u5b66\u5458\u5f85\u8ddf\u8fdb\u3002`);
   }
 
   return created;
@@ -408,40 +408,41 @@ function getStudentNames(students, studentIds) {
   return studentIds
     .map(id => students.find(student => student.id === Number(id))?.name)
     .filter(Boolean)
-    .join("、");
+    .join("\u3001");
 }
 
 function enrichLesson(lesson, schedule, students) {
   const teacher = schedule.teachers.find(item => item.id === Number(lesson.teacherId));
   const room = schedule.rooms.find(item => item.id === Number(lesson.roomId));
-  const course = schedule.courses.find(item => item.id === Number(lesson.courseId));
+  const course = (schedule.courseTypes || schedule.courses || []).find(item => item.id === Number(lesson.courseId));
   return {
     ...lesson,
-    teacherName: teacher?.name || "未分配老师",
-    roomName: room?.name || "未分配教室",
-    courseName: course?.name || "未设置课程",
+    teacherName: teacher?.name || "\u672a\u5206\u914d\u8001\u5e08",
+    roomName: room?.name || "\u672a\u5206\u914d\u6559\u5ba4",
+    courseName: course?.name || "\u672a\u8bbe\u7f6e\u8bfe\u7a0b",
     studentNames: getStudentNames(students, lesson.studentIds || [])
   };
 }
+
 
 function detectLessonConflicts(candidate, schedule) {
   const conflicts = [];
   const activeLessons = schedule.lessons.filter(lesson => lesson.status !== "cancelled" && lesson.id !== candidate.id);
   const room = schedule.rooms.find(item => item.id === Number(candidate.roomId));
-  const course = schedule.courses.find(item => item.id === Number(candidate.courseId));
+  const course = (schedule.courseTypes || schedule.courses || []).find(item => item.id === Number(candidate.courseId));
   const teacher = schedule.teachers.find(item => item.id === Number(candidate.teacherId));
   const studentIds = (candidate.studentIds || []).map(Number);
 
   for (const lesson of activeLessons) {
     if (!dateRangeOverlaps(candidate.startTime, candidate.endTime, lesson.startTime, lesson.endTime)) continue;
-    if (Number(lesson.teacherId) === Number(candidate.teacherId)) conflicts.push("老师同一时间已有课程");
-    if (Number(lesson.roomId) === Number(candidate.roomId)) conflicts.push("教室同一时间已被占用");
-    if ((lesson.studentIds || []).some(id => studentIds.includes(Number(id)))) conflicts.push("学员同一时间已有课程");
+    if (Number(lesson.teacherId) === Number(candidate.teacherId)) conflicts.push("\u8001\u5e08\u540c\u4e00\u65f6\u95f4\u5df2\u6709\u8bfe");
+    if (Number(lesson.roomId) === Number(candidate.roomId)) conflicts.push("\u6559\u5ba4\u540c\u4e00\u65f6\u95f4\u5df2\u88ab\u5360\u7528");
+    if ((lesson.studentIds || []).some(id => studentIds.includes(Number(id)))) conflicts.push("\u5b66\u5458\u540c\u4e00\u65f6\u95f4\u5df2\u6709\u8bfe");
   }
 
-  if (room && studentIds.length > room.capacity) conflicts.push(`教室容量不足，最多 ${room.capacity} 人`);
-  if (room && course && !room.courseTypes.includes(course.name)) conflicts.push("课程类型与教室不匹配");
-  if (teacher && course && teacher.courses.length && !teacher.courses.includes(course.name)) conflicts.push("老师不具备该课程授课资格");
+  if (room && studentIds.length > room.capacity) conflicts.push(`\u6559\u5ba4\u5bb9\u91cf\u4e0d\u8db3\uff0c\u6700\u591a ${room.capacity} \u4eba`);
+  if (room && course && !roomFitsCourse(room, course)) conflicts.push("\u8bfe\u7a0b\u7c7b\u578b\u4e0e\u6559\u5ba4\u4e0d\u5339\u914d");
+  if (teacher && course && Array.isArray(teacher.courseTypeIds) && teacher.courseTypeIds.length && !teacher.courseTypeIds.map(Number).includes(Number(course.id))) conflicts.push("\u8001\u5e08\u672a\u7ed1\u5b9a\u8be5\u8bfe\u7a0b\u7c7b\u578b");
 
   return [...new Set(conflicts)];
 }
@@ -453,15 +454,14 @@ function createLesson(body, schedule) {
     ? String(body.endTime)
     : new Date(new Date(startTime).getTime() + (course?.durationMinutes || 60) * 60_000).toISOString();
 
-  if (!body.courseId || !body.teacherId || !body.roomId || !startTime) return { error: "课程、老师、教室和上课时间为必填项" };
+  if (!body.courseId || !body.teacherId || !body.roomId || !startTime) return { error: "\u8bfe\u7a0b\u3001\u8001\u5e08\u3001\u6559\u5ba4\u548c\u4e0a\u8bfe\u65f6\u95f4\u4e3a\u5fc5\u586b\u9879" };
 
   const studentIds = Array.isArray(body.studentIds)
     ? body.studentIds.map(Number).filter(Boolean)
     : String(body.studentIds || "").split(",").map(item => Number(item.trim())).filter(Boolean);
 
-  const nextId = schedule.lessons.reduce((max, lesson) => Math.max(max, lesson.id || 0), 0) + 1;
   const lesson = {
-    id: nextId,
+    id: nextId(schedule.lessons),
     courseId: Number(body.courseId),
     teacherId: Number(body.teacherId),
     roomId: Number(body.roomId),
@@ -469,14 +469,12 @@ function createLesson(body, schedule) {
     startTime,
     endTime,
     status: "scheduled",
-    date: recommendation.date || "",
-    periodName: recommendation.periodName || "",
-    lessonIndex: recommendation.lessonIndex || null,
     createdAt: new Date().toISOString()
   };
 
   return { lesson, conflicts: detectLessonConflicts(lesson, schedule) };
 }
+
 
 const PERIOD_RULES = {
   morning: { name: "\u4e0a\u5348", startTime: "08:30", endTime: "12:00", firstLessonIndex: 1 },
@@ -571,10 +569,12 @@ function teacherFitsCourse(teacher, course) {
 function enrichClass(classItem, schedule, students) {
   const course = courseById(schedule, classItem.courseTypeId);
   const teacher = schedule.teachers.find(item => item.id === Number(classItem.teacherId));
+  const hasLesson = schedule.lessons.some(lesson => Number(lesson.classId) === Number(classItem.id));
   return {
     ...classItem,
-    courseName: course?.name || "未设置课程",
-    teacherName: teacher?.name || "未分配老师",
+    courseName: course?.name || "\u672a\u8bbe\u7f6e\u8bfe\u7a0b",
+    teacherName: teacher?.name || "\u672a\u5206\u914d\u8001\u5e08",
+    status: hasLesson ? "\u5df2\u6392\u8bfe" : "\u5f85\u6392\u8bfe",
     studentNames: getStudentNames(students, classItem.studentIds || [])
   };
 }
@@ -662,31 +662,14 @@ function createLessonFromRecommendation(classItem, recommendation, schedule) {
     studentIds: recommendation.availableStudentIds,
     startTime: startDate.toISOString(),
     endTime: endDate.toISOString(),
+    date: recommendation.date || "",
+    periodName: recommendation.periodName || "",
+    lessonIndex: recommendation.lessonIndex || null,
     status: "scheduled",
     createdAt: new Date().toISOString()
   };
 }
 
-function getStudentNames(students, studentIds) {
-  return (studentIds || [])
-    .map(id => students.find(student => student.id === Number(id))?.name)
-    .filter(Boolean)
-    .join("、");
-}
-
-function enrichClass(classItem, schedule, students) {
-  const course = courseById(schedule, classItem.courseTypeId);
-  const teacher = schedule.teachers.find(item => item.id === Number(classItem.teacherId));
-  const hasLesson = schedule.lessons.some(lesson => Number(lesson.classId) === Number(classItem.id));
-  return {
-    ...classItem,
-    courseName: course?.name || "未设置课程",
-    teacherName: teacher?.name || "未分配老师",
-    status: hasLesson ? "已排课" : "待排课",
-    studentNames: getStudentNames(students, classItem.studentIds || [])
-  };
-}
-
 function enrichLesson(lesson, schedule, students) {
   const teacher = schedule.teachers.find(item => item.id === Number(lesson.teacherId));
   const room = schedule.rooms.find(item => item.id === Number(lesson.roomId));
@@ -694,91 +677,12 @@ function enrichLesson(lesson, schedule, students) {
   const classItem = schedule.classes.find(item => item.id === Number(lesson.classId));
   return {
     ...lesson,
-    teacherName: teacher?.name || "未分配老师",
-    roomName: room?.name || "未分配教室",
-    courseName: course?.name || "未设置课程",
+    teacherName: teacher?.name || "\u672a\u5206\u914d\u8001\u5e08",
+    roomName: room?.name || "\u672a\u5206\u914d\u6559\u5ba4",
+    courseName: course?.name || "\u672a\u8bbe\u7f6e\u8bfe\u7a0b",
     className: classItem?.name || "",
     studentNames: getStudentNames(students, lesson.studentIds || [])
   };
-}
-
-function detectLessonConflicts(candidate, schedule) {
-  const conflicts = [];
-  const activeLessons = schedule.lessons.filter(lesson => lesson.status !== "cancelled" && lesson.id !== candidate.id);
-  const room = schedule.rooms.find(item => item.id === Number(candidate.roomId));
-  const course = courseById(schedule, candidate.courseId);
-  const teacher = schedule.teachers.find(item => item.id === Number(candidate.teacherId));
-  const studentIds = (candidate.studentIds || []).map(Number);
-
-  for (const lesson of activeLessons) {
-    if (!dateRangeOverlaps(candidate.startTime, candidate.endTime, lesson.startTime, lesson.endTime)) continue;
-    if (Number(lesson.teacherId) === Number(candidate.teacherId)) conflicts.push("老师同一时间已有课程");
-    if (Number(lesson.roomId) === Number(candidate.roomId)) conflicts.push("教室同一时间已被占用");
-    if ((lesson.studentIds || []).some(id => studentIds.includes(Number(id)))) conflicts.push("学员同一时间已有课程");
-  }
-
-  if (room && studentIds.length > room.capacity) conflicts.push(`教室容量不足，最多 ${room.capacity} 人`);
-  if (room && course && !roomFitsCourse(room, course)) conflicts.push("课程类型与教室不匹配");
-  if (teacher && course && !teacherFitsCourse(teacher, course)) conflicts.push("老师不具备该课程授课资格");
-
-  return [...new Set(conflicts)];
-}
-
-function getStudentNames(students, studentIds) {
-  return (studentIds || [])
-    .map(id => students.find(student => student.id === Number(id))?.name)
-    .filter(Boolean)
-    .join("、");
-}
-
-function enrichLesson(lesson, schedule, students) {
-  const teacher = schedule.teachers.find(item => item.id === Number(lesson.teacherId));
-  const room = schedule.rooms.find(item => item.id === Number(lesson.roomId));
-  const course = courseById(schedule, lesson.courseId);
-  const classItem = schedule.classes.find(item => item.id === Number(lesson.classId));
-  return {
-    ...lesson,
-    teacherName: teacher?.name || "未分配老师",
-    roomName: room?.name || "未分配教室",
-    courseName: course?.name || "未设置课程",
-    className: classItem?.name || "",
-    studentNames: getStudentNames(students, lesson.studentIds || [])
-  };
-}
-
-function detectLessonConflicts(candidate, schedule) {
-  const conflicts = [];
-  const activeLessons = schedule.lessons.filter(lesson => lesson.status !== "cancelled" && lesson.id !== candidate.id);
-  const room = schedule.rooms.find(item => item.id === Number(candidate.roomId));
-  const course = courseById(schedule, candidate.courseId);
-  const teacher = schedule.teachers.find(item => item.id === Number(candidate.teacherId));
-  const studentIds = (candidate.studentIds || []).map(Number);
-
-  for (const lesson of activeLessons) {
-    if (!dateRangeOverlaps(candidate.startTime, candidate.endTime, lesson.startTime, lesson.endTime)) continue;
-    if (Number(lesson.teacherId) === Number(candidate.teacherId)) conflicts.push("老师同一时间已有课程");
-    if (Number(lesson.roomId) === Number(candidate.roomId)) conflicts.push("教室同一时间已被占用");
-    if ((lesson.studentIds || []).some(id => studentIds.includes(Number(id)))) conflicts.push("学员同一时间已有课程");
-  }
-
-  if (room && studentIds.length > room.capacity) conflicts.push(`教室容量不足，最多 ${room.capacity} 人`);
-  if (room && course && !roomFitsCourse(room, course)) conflicts.push("课程类型与教室不匹配");
-  if (teacher && course && !teacherFitsCourse(teacher, course)) conflicts.push("老师不具备该课程授课资格");
-
-  return [...new Set(conflicts)];
-}
-
-function normalizeAvailabilitySlots(slots) {
-  return (Array.isArray(slots) ? slots : [])
-    .map(slot => ({
-      date: slot.date || "",
-      dayOfWeek: Number(slot.dayOfWeek || (slot.date ? dayOfWeekFromDate(slot.date) : 0)),
-      period: slot.period || "custom",
-      periodName: slot.periodName || (PERIOD_RULES[slot.period]?.name || "\u81ea\u5b9a\u4e49"),
-      startTime: String(slot.startTime || ""),
-      endTime: String(slot.endTime || "")
-    }))
-    .filter(slot => slot.dayOfWeek && slot.startTime && slot.endTime);
 }
 
 function enrichTeacher(teacher, schedule) {
@@ -867,87 +771,87 @@ function findNumber(content, patterns, fallback = 0) {
   return text ? toNumber(text.replace(/[^\d.]/g, ""), fallback) : fallback;
 }
 
+function matchField(content, keys, fallback = "") {
+  for (const key of keys) {
+    const pattern = new RegExp(`${key}\\s*[:\\uff1a]\\s*([^\\n\\r,\\uff0c]+)`, "i");
+    const match = content.match(pattern);
+    if (match && match[1]) return match[1].trim();
+  }
+  return fallback;
+}
+
+function matchNumberField(content, keys, fallback = 0) {
+  const text = matchField(content, keys, "");
+  return text ? toNumber(text.replace(/[^\d.]/g, ""), fallback) : fallback;
+}
+
 function parseProofFromText(content) {
   const proof = [];
-  const lines = content.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-
-  for (const line of lines) {
-    const match = line.match(/^(成长证据|成长点|进步|作品|课堂表现)\s*[：:]\s*(.+)$/);
-    if (match) proof.push([match[1], match[2]]);
+  const keys = ["\\u6210\\u957f\\u8bc1\\u636e", "\\u8bc1\\u636e", "\\u8868\\u73b0", "\\u4f5c\\u54c1", "\\u4f5c\\u4e1a"];
+  for (const line of content.split(/\r?\n/).map(item => item.trim()).filter(Boolean)) {
+    const text = matchField(line, keys, "");
+    if (text) proof.push(["\\u6210\\u957f\\u8bc1\\u636e", text]);
   }
-
   if (proof.length) return proof.slice(0, 3);
-
-  const summary = findText(content, [
-    /(?:课堂记录|学习反馈|老师点评|阶段总结)\s*[：:]\s*([^\n\r]+)/i
-  ], "");
-
-  return summary ? [["课堂表现", summary]] : [["课堂表现", "由本地知识库自动识别，建议补充具体作品或课堂记录。"]];
+  const summary = matchField(content, ["\\u6458\\u8981", "\\u60c5\\u51b5", "\\u5907\\u6ce8"], "");
+  return summary ? [["\\u6210\\u957f\\u8bc1\\u636e", summary]] : [["\\u6210\\u957f\\u8bc1\\u636e", "\\u5df2\\u4ece\\u77e5\\u8bc6\\u5e93\\u5b8c\\u6210\\u57fa\\u7840\\u4fe1\\u606f\\u91c7\\u96c6\\uff0c\\u53ef\\u540e\\u7eed\\u8865\\u5145\\u4f5c\\u54c1\\u6216\\u8bfe\\u5802\\u8bb0\\u5f55\\u3002"]];
 }
 
 function extractStudentFromText(content, source) {
-  const candidate = {
+  return normalizeCandidate({
     source,
-    name: findText(content, [/(?:学员姓名|学生姓名|姓名|学生|孩子)\s*[：:]\s*([^\n\r,，]+)/i]),
-    course: findText(content, [/(?:课程|报名课程|就读课程|班级)\s*[：:]\s*([^\n\r,，]+)/i]),
-    teacher: findText(content, [/(?:负责老师|老师|主教|教师)\s*[：:]\s*([^\n\r,，]+)/i]),
-    lessonsLeft: findNumber(content, [/(?:剩余课时|剩余|课时剩余)\s*[：:]\s*(\d+)/i], 4),
-    daysToEnd: findNumber(content, [/(?:预计课消天数|课消天数|预计结束|课消)\s*[：:]\s*(\d+)/i], 14),
-    absentRate: findNumber(content, [/(?:缺勤率|近月缺勤率)\s*[：:]\s*(\d+)/i], 0),
-    parentReplies: findNumber(content, [/(?:家长回复次数|家长互动|回复次数)\s*[：:]\s*(\d+)/i], 1),
-    homeworkMissed: findNumber(content, [/(?:作业缺交次数|缺交次数|作业缺交)\s*[：:]\s*(\d+)/i], 0),
-    renewalValue: findNumber(content, [/(?:续费金额|续费|金额)\s*[：:]\s*(\d+)/i], 3980),
-    lastContact: findText(content, [/(?:最近联系|上次联系|最后联系)\s*[：:]\s*([^\n\r,，]+)/i], "未联系"),
+    name: matchField(content, ["\\u59d3\\u540d", "\\u5b66\\u5458", "\\u5b66\\u751f"]),
+    course: matchField(content, ["\\u8bfe\\u7a0b", "\\u62a5\\u540d\\u8bfe\\u7a0b", "\\u5728\\u8bfb\\u8bfe\\u7a0b"]),
+    teacher: matchField(content, ["\\u8001\\u5e08", "\\u6559\\u5e08", "\\u4e0a\\u8bfe\\u8001\\u5e08", "\\u6388\\u8bfe\\u8001\\u5e08"]),
+    lessonsLeft: matchNumberField(content, ["\\u5269\\u4f59\\u8bfe\\u65f6", "\\u5269\\u4f59\\u8282\\u6570", "\\u5269\\u4f59\\u8bfe\\u7a0b"], 4),
+    daysToEnd: matchNumberField(content, ["\\u5230\\u671f\\u5929\\u6570", "\\u9884\\u8ba1\\u8bfe\\u6d88\\u5929\\u6570", "\\u5269\\u4f59\\u5929\\u6570"], 14),
+    absentRate: matchNumberField(content, ["\\u7f3a\\u52e4\\u7387", "\\u8fd1\\u6708\\u7f3a\\u52e4\\u7387"], 0),
+    parentReplies: matchNumberField(content, ["\\u5bb6\\u957f\\u56de\\u590d", "\\u56de\\u590d\\u6b21\\u6570", "\\u6c9f\\u901a\\u6b21\\u6570"], 1),
+    homeworkMissed: matchNumberField(content, ["\\u4f5c\\u4e1a\\u7f3a\\u4ea4", "\\u7f3a\\u4ea4\\u6b21\\u6570"], 0),
+    renewalValue: matchNumberField(content, ["\\u7eed\\u8d39\\u91d1\\u989d", "\\u7f34\\u8d39\\u91d1\\u989d", "\\u91d1\\u989d"], 3980),
+    lastContact: matchField(content, ["\\u6700\\u8fd1\\u8054\\u7cfb", "\\u4e0a\\u6b21\\u8054\\u7cfb", "\\u8054\\u7cfb\\u65f6\\u95f4"], "\\u672a\\u8054\\u7cfb"),
     proof: parseProofFromText(content)
-  };
-
-  if (!candidate.name || !candidate.course || !candidate.teacher) {
-    candidate.missing = ["name", "course", "teacher"].filter(key => !candidate[key]);
-  }
-
-  return candidate;
+  });
 }
 
 function parseCsv(content, source) {
   const lines = content.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (lines.length < 2) return [];
-
   const headers = lines[0].split(",").map(item => item.trim());
   return lines.slice(1).map((line, index) => {
     const cells = line.split(",").map(item => item.trim());
     const row = Object.fromEntries(headers.map((header, cellIndex) => [header, cells[cellIndex] || ""]));
-    return {
-      source: `${source} 第${index + 2}行`,
-      name: row.name || row.姓名 || row.学员姓名 || row.学生姓名 || "",
-      course: row.course || row.课程 || row.报名课程 || "",
-      teacher: row.teacher || row.老师 || row.负责老师 || "",
-      lessonsLeft: toNumber(row.lessonsLeft || row.剩余课时, 4),
-      daysToEnd: toNumber(row.daysToEnd || row.预计课消天数, 14),
-      absentRate: toNumber(row.absentRate || row.缺勤率, 0),
-      parentReplies: toNumber(row.parentReplies || row.家长回复次数, 1),
-      homeworkMissed: toNumber(row.homeworkMissed || row.作业缺交次数, 0),
-      renewalValue: toNumber(row.renewalValue || row.续费金额, 3980),
-      lastContact: row.lastContact || row.最近联系 || "未联系",
-      proof: [["课堂表现", row.成长证据 || row.学习反馈 || "由 CSV 知识库自动识别。"]]
-    };
-  });
+    return normalizeCandidate({
+      source: `${source}#${index + 1}`,
+      name: row.name || row["\\u59d3\\u540d"] || row["\\u5b66\\u5458"],
+      course: row.course || row["\\u8bfe\\u7a0b"],
+      teacher: row.teacher || row["\\u8001\\u5e08"] || row["\\u6559\\u5e08"],
+      lessonsLeft: toNumber(row.lessonsLeft || row["\\u5269\\u4f59\\u8bfe\\u65f6"], 4),
+      daysToEnd: toNumber(row.daysToEnd || row["\\u5230\\u671f\\u5929\\u6570"], 14),
+      absentRate: toNumber(row.absentRate || row["\\u7f3a\\u52e4\\u7387"], 0),
+      parentReplies: toNumber(row.parentReplies || row["\\u5bb6\\u957f\\u56de\\u590d"], 1),
+      homeworkMissed: toNumber(row.homeworkMissed || row["\\u4f5c\\u4e1a\\u7f3a\\u4ea4"], 0),
+      renewalValue: toNumber(row.renewalValue || row["\\u7eed\\u8d39\\u91d1\\u989d"] || row["\\u7f34\\u8d39\\u91d1\\u989d"], 3980),
+      lastContact: row.lastContact || row["\\u6700\\u8fd1\\u8054\\u7cfb"] || "\\u672a\\u8054\\u7cfb",
+      proof: [["\\u6210\\u957f\\u8bc1\\u636e", row.proof || row["\\u6210\\u957f\\u8bc1\\u636e"] || "\\u6765\\u81ea CSV \\u77e5\\u8bc6\\u5e93\\u5bfc\\u5165"]]
+    });
+  }).filter(item => item.name);
 }
 
 function normalizeCandidate(candidate) {
   return {
-    name: candidate.name || "",
-    course: candidate.course || "",
-    teacher: candidate.teacher || "",
+    source: candidate.source || "knowledge_base",
+    name: String(candidate.name || "").trim(),
+    course: String(candidate.course || "\\u5f85\\u8bbe\\u7f6e\\u8bfe\\u7a0b").trim(),
+    teacher: String(candidate.teacher || "\\u5f85\\u5206\\u914d\\u8001\\u5e08").trim(),
     lessonsLeft: toNumber(candidate.lessonsLeft, 4),
     daysToEnd: toNumber(candidate.daysToEnd, 14),
     absentRate: toNumber(candidate.absentRate, 0),
     parentReplies: toNumber(candidate.parentReplies, 1),
     homeworkMissed: toNumber(candidate.homeworkMissed, 0),
     renewalValue: toNumber(candidate.renewalValue, 3980),
-    lastContact: candidate.lastContact || "未联系",
-    proof: Array.isArray(candidate.proof) && candidate.proof.length ? candidate.proof : [["课堂表现", "由本地知识库自动识别。"]],
-    source: candidate.source || "本地知识库",
-    missing: candidate.missing || []
+    lastContact: String(candidate.lastContact || "\\u672a\\u8054\\u7cfb").trim(),
+    proof: Array.isArray(candidate.proof) ? candidate.proof : [["\\u6210\\u957f\\u8bc1\\u636e", "\\u5df2\\u4ece\\u77e5\\u8bc6\\u5e93\\u91c7\\u96c6"]]
   };
 }
 
@@ -991,12 +895,12 @@ async function handleApi(req, res, url) {
     if (account || fallbackAdmin) {
       const user = account
         ? { id: account.id, username: account.username, role: account.role }
-        : { username: ADMIN_USER, role: "校长" };
+        : { username: ADMIN_USER, role: "\u8d85\u7ea7\u7ba1\u7406\u5458" };
       setSession(res, user);
       sendJson(res, 200, { user });
       return;
     }
-    sendJson(res, 401, { error: "账号或密码错误" });
+    sendJson(res, 401, { error: "\u8d26\u53f7\u6216\u5bc6\u7801\u9519\u8bef" });
     return;
   }
 
@@ -1010,21 +914,21 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
-    const role = String(body.role || "老师").trim();
+    const role = String(body.role || "\u8fd0\u8425").trim();
 
     if (!/^[a-zA-Z0-9_]{3,24}$/.test(username)) {
-      sendJson(res, 400, { error: "账号需为3-24位字母、数字或下划线" });
+      sendJson(res, 400, { error: "\u8d26\u53f7\u9700\u4e3a 3-24 \u4f4d\u5b57\u6bcd\u3001\u6570\u5b57\u6216\u4e0b\u5212\u7ebf" });
       return;
     }
 
     if (password.length < 6) {
-      sendJson(res, 400, { error: "密码至少6位" });
+      sendJson(res, 400, { error: "\u5bc6\u7801\u81f3\u5c11 6 \u4f4d" });
       return;
     }
 
     const users = await readUsers();
     if (users.some(user => user.username === username)) {
-      sendJson(res, 409, { error: "账号已存在" });
+      sendJson(res, 409, { error: "\u8d26\u53f7\u5df2\u5b58\u5728" });
       return;
     }
 
@@ -1033,7 +937,7 @@ async function handleApi(req, res, url) {
       id: nextId,
       username,
       password,
-      role: ["校长", "前台", "老师"].includes(role) ? role : "老师",
+      role: ["\u6821\u957f", "\u8001\u5e08", "\u8fd0\u8425"].includes(role) ? role : "\u8fd0\u8425",
       createdAt: new Date().toISOString()
     };
     users.push(account);
@@ -1045,15 +949,16 @@ async function handleApi(req, res, url) {
     return;
   }
 
+
   const user = currentUser(req);
   if (req.method === "GET" && url.pathname === "/api/session") {
-    if (!user) return sendJson(res, 401, { error: "未登录" });
+    if (!user) return sendJson(res, 401, { error: "\u672a\u767b\u5f55" });
     sendJson(res, 200, { user });
     return;
   }
 
   if (!user) {
-    sendJson(res, 401, { error: "未登录" });
+    sendJson(res, 401, { error: "\u672a\u767b\u5f55" });
     return;
   }
 
@@ -1122,11 +1027,11 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/schedule/course-types") {
     const body = await readBody(req);
     const name = String(body.name || "").trim();
-    if (!name) return sendJson(res, 400, { error: "课程类型名称不能为空" });
+    if (!name) return sendJson(res, 400, { error: "\\u8bfe\\u7a0b\\u7c7b\\u578b\\u540d\\u79f0\\u4e0d\\u80fd\\u4e3a\\u7a7a" });
     const courseType = {
       id: nextId(schedule.courseTypes),
       name,
-      category: String(body.category || "未分类").trim(),
+      category: String(body.category || "\\u672a\\u5206\\u7c7b").trim(),
       durationMinutes: toNumber(body.durationMinutes, 60),
       defaultCapacity: toNumber(body.defaultCapacity, 10),
       roomTypes: String(body.roomTypes || "").split(",").map(item => item.trim()).filter(Boolean),
@@ -1151,7 +1056,7 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/schedule/classes") {
     const body = await readBody(req);
     const name = String(body.name || "").trim();
-    if (!name || !body.courseTypeId || !body.teacherId) return sendJson(res, 400, { error: "班级名称、课程类型和老师为必填项" });
+    if (!name || !body.courseTypeId || !body.teacherId) return sendJson(res, 400, { error: "\\u73ed\\u7ea7\\u540d\\u79f0\\u3001\\u8bfe\\u7a0b\\u7c7b\\u578b\\u548c\\u8001\\u5e08\\u4e3a\\u5fc5\\u586b\\u9879" });
     const classItem = {
       id: nextId(schedule.classes),
       name,
@@ -1159,7 +1064,7 @@ async function handleApi(req, res, url) {
       teacherId: Number(body.teacherId),
       studentIds: Array.isArray(body.studentIds) ? body.studentIds.map(Number).filter(Boolean) : [],
       capacity: toNumber(body.capacity, courseById(schedule, body.courseTypeId)?.defaultCapacity || 10),
-      status: "待排课"
+      status: "\u5f85\u6392\u8bfe"
     };
     schedule.classes.push(classItem);
     await writeSchedule(schedule);
@@ -1207,7 +1112,7 @@ async function handleApi(req, res, url) {
       startTime: String(body.startTime || ""),
       endTime: String(body.endTime || "")
     };
-    if (!slot.studentId || !slot.dayOfWeek || !slot.startTime || !slot.endTime) return sendJson(res, 400, { error: "学生和可上课时间为必填项" });
+    if (!slot.studentId || !slot.dayOfWeek || !slot.startTime || !slot.endTime) return sendJson(res, 400, { error: "\u5b66\u5458\u548c\u53ef\u4e0a\u8bfe\u65f6\u95f4\u4e3a\u5fc5\u586b\u9879" });
     schedule.studentAvailability.push(slot);
     await writeSchedule(schedule);
     sendJson(res, 201, { slot });
@@ -1229,11 +1134,11 @@ async function handleApi(req, res, url) {
     if (!classItem) return sendJson(res, 404, { error: "Class not found" });
     const recommendations = buildScheduleRecommendation(classItem, schedule, students);
     const recommendation = recommendations.find(item => item.id === Number(body.recommendationId)) || recommendations[0];
-    if (!recommendation) return sendJson(res, 400, { error: "暂无可生成的推荐课表" });
-    if (recommendation.conflicts.length && !body.force) return sendJson(res, 409, { error: "推荐时间存在冲突", conflicts: recommendation.conflicts });
+    if (!recommendation) return sendJson(res, 400, { error: "\u6682\u65e0\u53ef\u7528\u63a8\u8350\u6392\u8bfe" });
+    if (recommendation.conflicts.length && !body.force) return sendJson(res, 409, { error: "\u5b58\u5728\u6392\u8bfe\u51b2\u7a81", conflicts: recommendation.conflicts });
     const lesson = createLessonFromRecommendation(classItem, recommendation, schedule);
     schedule.lessons.push(lesson);
-    classItem.status = "已排课";
+    classItem.status = "\u5df2\u6392\u8bfe";
     await writeSchedule(schedule);
     sendJson(res, 201, { lesson: enrichLesson(lesson, schedule, students), classItem: enrichClass(classItem, schedule, students) });
     return;
@@ -1260,7 +1165,7 @@ async function handleApi(req, res, url) {
     const result = createLesson(body, schedule);
     if (result.error) return sendJson(res, 400, { error: result.error });
     if (result.conflicts.length && !body.force) {
-      sendJson(res, 409, { error: "存在排课冲突", conflicts: result.conflicts });
+      sendJson(res, 409, { error: "\u5b58\u5728\u6392\u8bfe\u51b2\u7a81", conflicts: result.conflicts });
       return;
     }
     schedule.lessons.push(result.lesson);
@@ -1276,7 +1181,7 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && lessonCompleteMatch) {
     const lesson = schedule.lessons.find(item => item.id === Number(lessonCompleteMatch[1]));
     if (!lesson) return sendJson(res, 404, { error: "Lesson not found" });
-    if (lesson.status === "completed") return sendJson(res, 400, { error: "该课节已完成" });
+    if (lesson.status === "completed") return sendJson(res, 400, { error: "\u8be5\u8bfe\u8282\u5df2\u5b8c\u6210\u8bfe\u6d88" });
 
     const consumed = [];
     for (const studentId of lesson.studentIds || []) {
@@ -1363,12 +1268,12 @@ async function handleApi(req, res, url) {
     const content = String(body.content || "");
 
     if (!isSupportedKnowledgeFile(fileName)) {
-      sendJson(res, 400, { error: "只支持 txt、md、json、csv 文件" });
+      sendJson(res, 400, { error: "\u4ec5\u652f\u6301 txt\u3001md\u3001json\u3001csv \u6587\u4ef6" });
       return;
     }
 
     if (!content.trim()) {
-      sendJson(res, 400, { error: "文件内容为空" });
+      sendJson(res, 400, { error: "\u6587\u4ef6\u5185\u5bb9\u4e0d\u80fd\u4e3a\u7a7a" });
       return;
     }
 
@@ -1463,16 +1368,16 @@ async function handleApi(req, res, url) {
     const student = students.find(item => item.id === Number(studentMatch[1]));
     if (!student) return sendJson(res, 404, { error: "Student not found" });
 
-    if (body.status === "已跟进") {
-      student.status = "已跟进";
-      student.lastContact = "刚刚";
+    if (body.status === "\u5df2\u8ddf\u8fdb") {
+      student.status = "\u5df2\u8ddf\u8fdb";
+      student.lastContact = "\u4eca\u5929";
     }
 
-    if (body.status === "已续费") {
-      student.status = "已续费";
+    if (body.status === "\u5df2\u7eed\u8d39") {
+      student.status = "\u5df2\u7eed\u8d39";
       student.lessonsLeft = 24;
       student.daysToEnd = 80;
-      student.lastContact = "刚刚";
+      student.lastContact = "\u4eca\u5929";
     }
 
     await writeStudents(students);
@@ -1480,6 +1385,7 @@ async function handleApi(req, res, url) {
     sendJson(res, 200, { student: enrichStudent(student), summary: makeSummary(students) });
     return;
   }
+
 
   sendJson(res, 404, { error: "API route not found" });
 }

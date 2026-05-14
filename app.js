@@ -181,59 +181,59 @@ function selectCurrentTeacherMonth() {
 function renderCourseTypes() {
   document.getElementById("courseTypeList").innerHTML = state.scheduleMeta.courseTypes.map(item => `
     <div class="compact-item">
-      <span>${item.name} · ${item.category} · ${item.durationMinutes} 分钟 · ${item.defaultCapacity} 人</span>
-      <button type="button" data-delete-course-type="${item.id}">删除</button>
+      <span>${item.name} \u00b7 ${item.category} \u00b7 ${item.durationMinutes} \u5206\u949f \u00b7 ${item.defaultCapacity} \u4eba</span>
+      <button type="button" data-delete-course-type="${item.id}">\u5220\u9664</button>
     </div>
-  `).join("") || "<p class=\"empty-state\">暂无课程类型</p>";
+  `).join("") || "<p class=\"empty-state\">\u6682\u65e0\u8bfe\u7a0b\u7c7b\u578b</p>";
 }
 
 function renderTeachers() {
   document.getElementById("teacherList").innerHTML = state.scheduleMeta.teachers.map(teacher => {
-    const slots = (teacher.availableTimes || []).map(slot => `${dayName(slot.dayOfWeek)} ${slot.startTime}-${slot.endTime}`).join("、") || "未录入可授课时间";
+    const slots = (teacher.availableTimes || []).map(slot => `${dayName(slot.dayOfWeek)} ${slot.startTime}-${slot.endTime}`).join("\u3001") || "\u672a\u5f55\u5165\u53ef\u6388\u8bfe\u65f6\u95f4";
     return `
       <div class="compact-item teacher-item">
-        <span><strong>${teacher.name}</strong> · ${teacher.employmentType || "未设置"} · ${teacher.courseNames || "未绑定课程"}<br><small>${teacher.phone || "未填电话"} · ${slots}</small></span>
-        <button type="button" data-delete-teacher="${teacher.id}">删除</button>
+        <span><strong>${teacher.name}</strong> \u00b7 ${teacher.employmentType || "\u672a\u8bbe\u7f6e"} \u00b7 ${teacher.courseNames || "\u672a\u7ed1\u5b9a\u8bfe\u7a0b"}<br><small>${teacher.phone || "\u672a\u586b\u7535\u8bdd"} \u00b7 ${slots}</small></span>
+        <button type="button" data-delete-teacher="${teacher.id}">\u5220\u9664</button>
       </div>
     `;
-  }).join("") || "<p class=\"empty-state\">暂无教师资料</p>";
+  }).join("") || "<p class=\"empty-state\">\u6682\u65e0\u6559\u5e08\u8d44\u6599</p>";
 }
 
 function renderClasses() {
   document.getElementById("classList").innerHTML = state.scheduleMeta.classes.map(item => `
     <div class="compact-item">
-      <span>${item.name} · ${item.courseName} · ${item.teacherName}<br><small>${item.studentNames || "未添加学员"} · ${item.status}</small></span>
-      <button type="button" data-delete-class="${item.id}">删除</button>
+      <span>${item.name} \u00b7 ${item.courseName} \u00b7 ${item.teacherName}<br><small>${item.studentNames || "\u672a\u6dfb\u52a0\u5b66\u5458"} \u00b7 ${item.status}</small></span>
+      <button type="button" data-delete-class="${item.id}">\u5220\u9664</button>
     </div>
-  `).join("") || "<p class=\"empty-state\">暂无班级</p>";
+  `).join("") || "<p class=\"empty-state\">\u6682\u65e0\u73ed\u7ea7</p>";
 }
 
 function renderAvailability() {
   const teacherMap = Object.fromEntries(state.scheduleMeta.teachers.map(item => [item.id, item.name]));
   const studentMap = Object.fromEntries(state.scheduleMeta.students.map(item => [item.id, item.name]));
   document.getElementById("teacherAvailabilityList").innerHTML = state.scheduleMeta.teacherAvailability.map(slot => `
-    <div class="compact-item"><span>${teacherMap[slot.teacherId] || "-"} · ${dayName(slot.dayOfWeek)} ${slot.startTime}-${slot.endTime}</span></div>
-  `).join("") || "<p class=\"empty-state\">暂无老师可授课时间</p>";
+    <div class="compact-item"><span>${teacherMap[slot.teacherId] || "-"} \u00b7 ${dayName(slot.dayOfWeek)} ${slot.startTime}-${slot.endTime}</span></div>
+  `).join("") || "<p class=\"empty-state\">\u6682\u65e0\u8001\u5e08\u53ef\u6388\u8bfe\u65f6\u95f4</p>";
   document.getElementById("studentAvailabilityList").innerHTML = state.scheduleMeta.studentAvailability.map(slot => `
-    <div class="compact-item"><span>${studentMap[slot.studentId] || "-"} · ${dayName(slot.dayOfWeek)} ${slot.startTime}-${slot.endTime}</span></div>
-  `).join("") || "<p class=\"empty-state\">暂无学生可上课时间</p>";
+    <div class="compact-item"><span>${studentMap[slot.studentId] || "-"} \u00b7 ${dayName(slot.dayOfWeek)} ${slot.startTime}-${slot.endTime}</span></div>
+  `).join("") || "<p class=\"empty-state\">\u6682\u65e0\u5b66\u751f\u53ef\u4e0a\u8bfe\u65f6\u95f4</p>";
 }
 
 function renderRecommendations() {
   const container = document.getElementById("recommendationList");
   if (!state.recommendations.length) {
-    container.innerHTML = "<p class=\"empty-state\">暂无推荐，请先选择班级生成推荐排课。</p>";
+    container.innerHTML = "<p class=\"empty-state\">\u6682\u65e0\u63a8\u8350\uff0c\u8bf7\u5148\u9009\u62e9\u73ed\u7ea7\u751f\u6210\u63a8\u8350\u6392\u8bfe\u3002</p>";
     return;
   }
   container.innerHTML = state.recommendations.map(item => `
     <article class="recommendation-card">
       <div>
-        <strong>${dayName(item.dayOfWeek)} ${item.startTime}-${item.endTime} · ${item.roomName}</strong>
-        <p>${item.courseName} · ${item.teacherName} · 可排 ${item.availableCount}/${item.totalCount} 人</p>
-        ${item.unavailableStudentNames ? `<p class="candidate-warning">不可排：${item.unavailableStudentNames}</p>` : ""}
-        ${item.conflicts.length ? `<p class="candidate-warning">冲突：${item.conflicts.join("、")}</p>` : "<p class=\"candidate-proof\">无冲突</p>"}
+        <strong>${dayName(item.dayOfWeek)} ${item.startTime}-${item.endTime} \u00b7 ${item.roomName}</strong>
+        <p>${item.courseName} \u00b7 ${item.teacherName} \u00b7 \u53ef\u6392 ${item.availableCount}/${item.totalCount} \u4eba</p>
+        ${item.unavailableStudentNames ? `<p class="candidate-warning">\u4e0d\u53ef\u6392\uff1a${item.unavailableStudentNames}</p>` : ""}
+        ${item.conflicts.length ? `<p class="candidate-warning">\u51b2\u7a81\uff1a${item.conflicts.join("\u3001")}</p>` : "<p class=\"candidate-proof\">\u65e0\u51b2\u7a81</p>"}
       </div>
-      <button type="button" data-generate-lesson="${item.id}">生成课表</button>
+      <button type="button" data-generate-lesson="${item.id}">\u751f\u6210\u8bfe\u8868</button>
     </article>
   `).join("");
 }
@@ -241,19 +241,19 @@ function renderRecommendations() {
 function renderLessons() {
   const list = document.getElementById("lessonList");
   if (!state.lessons.length) {
-    list.innerHTML = "<tr><td colspan=\"8\">暂无已生成课表</td></tr>";
+    list.innerHTML = "<tr><td colspan=\"8\">\u6682\u65e0\u5df2\u751f\u6210\u8bfe\u8868</td></tr>";
     return;
   }
   list.innerHTML = state.lessons.map(lesson => `
     <tr>
-      <td>${new Date(lesson.startTime).toLocaleString("zh-CN")}<br><small>至 ${new Date(lesson.endTime).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</small></td>
+      <td>${new Date(lesson.startTime).toLocaleString("zh-CN")}<br><small>\u81f3 ${new Date(lesson.endTime).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}</small></td>
       <td>${lesson.className || "-"}</td>
       <td>${lesson.courseName}</td>
       <td>${lesson.teacherName}</td>
       <td>${lesson.roomName}</td>
-      <td>${lesson.studentNames || "未添加学员"}</td>
-      <td>${lesson.status === "completed" ? "已课消" : "已排课"}</td>
-      <td>${lesson.status === "completed" ? "" : `<button type="button" data-complete-lesson="${lesson.id}">完成课消</button>`}</td>
+      <td>${lesson.studentNames || "\u672a\u6dfb\u52a0\u5b66\u5458"}</td>
+      <td>${lesson.status === "completed" ? "\u5df2\u8bfe\u6d88" : "\u5df2\u6392\u8bfe"}</td>
+      <td>${lesson.status === "completed" ? "" : `<button type="button" data-complete-lesson="${lesson.id}">\u5b8c\u6210\u8bfe\u6d88</button>`}</td>
     </tr>
   `).join("");
 }
@@ -498,14 +498,14 @@ async function createCourseType(form) {
   await api("/api/schedule/course-types", { method: "POST", body: JSON.stringify(body) });
   form.reset();
   await loadScheduleMeta();
-  showToast("课程类型已新增");
+  showToast("\u8bfe\u7a0b\u7c7b\u578b\u5df2\u65b0\u589e");
 }
 
 async function deleteCourseType(id) {
   await api(`/api/schedule/course-types/${id}`, { method: "DELETE" });
   state.recommendations = [];
   await Promise.all([loadScheduleMeta(), loadLessons()]);
-  showToast("课程类型已删除");
+  showToast("\u8bfe\u7a0b\u7c7b\u578b\u5df2\u5220\u9664");
 }
 
 async function createClass(form) {
@@ -514,33 +514,33 @@ async function createClass(form) {
   await api("/api/schedule/classes", { method: "POST", body: JSON.stringify(body) });
   form.reset();
   await loadScheduleMeta();
-  showToast("班级已新增");
+  showToast("\u73ed\u7ea7\u5df2\u65b0\u589e");
 }
 
 async function deleteClass(id) {
   await api(`/api/schedule/classes/${id}`, { method: "DELETE" });
   state.recommendations = [];
   await Promise.all([loadScheduleMeta(), loadLessons()]);
-  showToast("班级已删除");
+  showToast("\u73ed\u7ea7\u5df2\u5220\u9664");
 }
 
 async function createTeacherAvailability(form) {
   const body = Object.fromEntries(new FormData(form).entries());
   await api("/api/schedule/teacher-availability", { method: "POST", body: JSON.stringify(body) });
   await loadScheduleMeta();
-  showToast("老师可授课时间已保存");
+  showToast("\u8001\u5e08\u53ef\u6388\u8bfe\u65f6\u95f4\u5df2\u4fdd\u5b58");
 }
 
 async function createStudentAvailability(form) {
   const body = Object.fromEntries(new FormData(form).entries());
   await api("/api/schedule/student-availability", { method: "POST", body: JSON.stringify(body) });
   await loadScheduleMeta();
-  showToast("学生可上课时间已保存");
+  showToast("\u5b66\u751f\u53ef\u4e0a\u8bfe\u65f6\u95f4\u5df2\u4fdd\u5b58");
 }
 
 async function recommendSchedule() {
   const classId = document.getElementById("recommendClass").value;
-  if (!classId) return showToast("请先创建班级");
+  if (!classId) return showToast("\u8bf7\u5148\u521b\u5efa\u73ed\u7ea7");
   const data = await api(`/api/schedule/classes/${classId}/recommendations`);
   state.recommendations = data.recommendations || [];
   renderRecommendations();
@@ -552,7 +552,7 @@ async function generateLesson(recommendationId) {
   state.lessons = [...state.lessons, data.lesson].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
   state.recommendations = [];
   await Promise.all([loadScheduleMeta(), loadLessons()]);
-  showToast("课表已生成");
+  showToast("\u8bfe\u8868\u5df2\u751f\u6210");
 }
 
 async function completeLesson(id) {
@@ -562,7 +562,7 @@ async function completeLesson(id) {
   renderLessons();
   renderSummary(data.summary);
   render();
-  showToast(`已完成课消：${data.consumed.length} 位学员扣课`);
+  showToast(`\u5df2\u5b8c\u6210\u8bfe\u6d88\uff1a${data.consumed.length} \u4f4d\u5b66\u5458\u6263\u8bfe`);
 }
 
 function bindEvents() {
