@@ -6,11 +6,17 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 4173);
 const HOST = process.env.HOST || "0.0.0.0";
 const ROOT = __dirname;
-const DATA_FILE = path.join(ROOT, "data.json");
-const USERS_FILE = path.join(ROOT, "users.json");
-const NOTIFICATIONS_FILE = path.join(ROOT, "notifications.json");
-const SCHEDULE_FILE = path.join(ROOT, "schedule.json");
-const KNOWLEDGE_DIR = path.join(ROOT, "knowledge_base");
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(ROOT, "storage");
+const SEED_DATA_FILE = path.join(ROOT, "data.json");
+const SEED_USERS_FILE = path.join(ROOT, "users.json");
+const SEED_NOTIFICATIONS_FILE = path.join(ROOT, "notifications.json");
+const SEED_SCHEDULE_FILE = path.join(ROOT, "schedule.json");
+const SEED_KNOWLEDGE_DIR = path.join(ROOT, "knowledge_base");
+const DATA_FILE = path.join(DATA_DIR, "data.json");
+const USERS_FILE = path.join(DATA_DIR, "users.json");
+const NOTIFICATIONS_FILE = path.join(DATA_DIR, "notifications.json");
+const SCHEDULE_FILE = path.join(DATA_DIR, "schedule.json");
+const KNOWLEDGE_DIR = path.join(DATA_DIR, "knowledge_base");
 const TEACHERS_KB_FILE = path.join(KNOWLEDGE_DIR, "teachers.json");
 const STUDENTS_KB_FILE = path.join(KNOWLEDGE_DIR, "students.json");
 const STUDENT_ASSET_DIR = path.join(KNOWLEDGE_DIR, "student_assets");
@@ -23,10 +29,60 @@ const contentTypes = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "application/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8"
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp"
 };
 
 const publicFiles = new Set(["/login.html", "/login.js", "/styles.css"]);
+
+async function pathExists(filePath) {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function copySeedFileIfMissing(seedPath, targetPath, fallbackContent) {
+  if (await pathExists(targetPath)) return;
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  try {
+    await fs.copyFile(seedPath, targetPath);
+  } catch {
+    await fs.writeFile(targetPath, fallbackContent, "utf8");
+  }
+}
+
+async function copySeedDirectoryIfMissing(seedPath, targetPath) {
+  if (await pathExists(targetPath)) return;
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  try {
+    await fs.cp(seedPath, targetPath, { recursive: true });
+  } catch {
+    await fs.mkdir(targetPath, { recursive: true });
+  }
+}
+
+async function ensureRuntimeStorage() {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+  await copySeedFileIfMissing(SEED_DATA_FILE, DATA_FILE, "[]\n");
+  await copySeedFileIfMissing(SEED_USERS_FILE, USERS_FILE, "[]\n");
+  await copySeedFileIfMissing(SEED_NOTIFICATIONS_FILE, NOTIFICATIONS_FILE, "[]\n");
+  await copySeedFileIfMissing(SEED_SCHEDULE_FILE, SCHEDULE_FILE, JSON.stringify({
+    courseTypes: [],
+    classes: [],
+    teachers: [],
+    rooms: [],
+    teacherAvailability: [],
+    studentAvailability: [],
+    lessons: []
+  }, null, 2) + "\n");
+  await copySeedDirectoryIfMissing(SEED_KNOWLEDGE_DIR, KNOWLEDGE_DIR);
+}
 
 async function readStudents() {
   const raw = await fs.readFile(DATA_FILE, "utf8");
@@ -1405,6 +1461,27 @@ async function serveStatic(req, res, url) {
     return;
   }
 
+  if (url.pathname.startsWith("/knowledge_base/")) {
+    const relativePath = decodeURIComponent(url.pathname.slice(1));
+    const filePath = path.resolve(DATA_DIR, relativePath);
+
+    if (!filePath.startsWith(KNOWLEDGE_DIR)) {
+      res.writeHead(403);
+      res.end("Forbidden");
+      return;
+    }
+
+    try {
+      const data = await fs.readFile(filePath);
+      res.writeHead(200, { "Content-Type": contentTypes[path.extname(filePath)] || "application/octet-stream" });
+      res.end(data);
+    } catch {
+      res.writeHead(404);
+      res.end("Not found");
+    }
+    return;
+  }
+
   const safePath = url.pathname === "/" ? "index.html" : decodeURIComponent(url.pathname.slice(1));
   const filePath = path.resolve(ROOT, safePath);
 
@@ -1439,7 +1516,15 @@ const server = http.createServer(async (req, res) => {
 
 global.__mvpServer = server;
 
-server.listen(PORT, HOST, () => {
-  console.log(`MVP running at http://${HOST}:${PORT}/`);
-  console.log(`Login: ${ADMIN_USER} / ${ADMIN_PASS}`);
-});
+ensureRuntimeStorage()
+  .then(() => {
+    server.listen(PORT, HOST, () => {
+      console.log(`MVP running at http://${HOST}:${PORT}/`);
+      console.log(`Login: ${ADMIN_USER} / ${ADMIN_PASS}`);
+      console.log(`Data directory: ${DATA_DIR}`);
+    });
+  })
+  .catch(error => {
+    console.error("Failed to initialize data directory:", error);
+    process.exit(1);
+  });

@@ -17,6 +17,9 @@ COPY knowledge_base ./knowledge_base
 
 ENV HOST=0.0.0.0
 ENV PORT=4173
+ENV DATA_DIR=/app/storage
+
+VOLUME ["/app/storage"]
 
 EXPOSE 4173
 

@@ -12,3 +12,9 @@ services:
         value: admin
       - key: ADMIN_PASS
         generateValue: true
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: app-data
+      mountPath: /var/data
+      sizeGB: 1
