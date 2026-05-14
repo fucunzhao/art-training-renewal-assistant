@@ -573,6 +573,30 @@ function expandDatePeriods(dates, periods) {
   }
   return slots;
 }
+
+function normalizeAvailabilitySlots(slots) {
+  return (Array.isArray(slots) ? slots : [])
+    .map(slot => {
+      const period = PERIOD_RULES[slot.period] || null;
+      const date = String(slot.date || "").trim();
+      const dayOfWeek = Number(slot.dayOfWeek || (date ? dayOfWeekFromDate(date) : 0));
+      const startTime = String(slot.startTime || period?.startTime || "").trim();
+      const endTime = String(slot.endTime || period?.endTime || "").trim();
+
+      if (!dayOfWeek || !startTime || !endTime) return null;
+
+      return {
+        ...(date ? { date } : {}),
+        dayOfWeek,
+        period: slot.period || "custom",
+        periodName: slot.periodName || period?.name || "\u81ea\u5b9a\u4e49",
+        startTime,
+        endTime
+      };
+    })
+    .filter(Boolean);
+}
+
 function nextId(items) {
   return items.reduce((max, item) => Math.max(max, item.id || 0), 0) + 1;
 }
@@ -843,29 +867,29 @@ function matchNumberField(content, keys, fallback = 0) {
 
 function parseProofFromText(content) {
   const proof = [];
-  const keys = ["\\u6210\\u957f\\u8bc1\\u636e", "\\u8bc1\\u636e", "\\u8868\\u73b0", "\\u4f5c\\u54c1", "\\u4f5c\\u4e1a"];
+  const keys = ["\u6210\u957f\u8bc1\u636e", "\u8bc1\u636e", "\u8868\u73b0", "\u4f5c\u54c1", "\u4f5c\u4e1a"];
   for (const line of content.split(/\r?\n/).map(item => item.trim()).filter(Boolean)) {
     const text = matchField(line, keys, "");
-    if (text) proof.push(["\\u6210\\u957f\\u8bc1\\u636e", text]);
+    if (text) proof.push(["\u6210\u957f\u8bc1\u636e", text]);
   }
   if (proof.length) return proof.slice(0, 3);
-  const summary = matchField(content, ["\\u6458\\u8981", "\\u60c5\\u51b5", "\\u5907\\u6ce8"], "");
-  return summary ? [["\\u6210\\u957f\\u8bc1\\u636e", summary]] : [["\\u6210\\u957f\\u8bc1\\u636e", "\\u5df2\\u4ece\\u77e5\\u8bc6\\u5e93\\u5b8c\\u6210\\u57fa\\u7840\\u4fe1\\u606f\\u91c7\\u96c6\\uff0c\\u53ef\\u540e\\u7eed\\u8865\\u5145\\u4f5c\\u54c1\\u6216\\u8bfe\\u5802\\u8bb0\\u5f55\\u3002"]];
+  const summary = matchField(content, ["\u6458\u8981", "\u60c5\u51b5", "\u5907\u6ce8"], "");
+  return summary ? [["\u6210\u957f\u8bc1\u636e", summary]] : [["\u6210\u957f\u8bc1\u636e", "\u5df2\u4ece\u77e5\u8bc6\u5e93\u5b8c\u6210\u57fa\u7840\u4fe1\u606f\u91c7\u96c6\uff0c\u53ef\u540e\u7eed\u8865\u5145\u4f5c\u54c1\u6216\u8bfe\u5802\u8bb0\u5f55\u3002"]];
 }
 
 function extractStudentFromText(content, source) {
   return normalizeCandidate({
     source,
-    name: matchField(content, ["\\u59d3\\u540d", "\\u5b66\\u5458", "\\u5b66\\u751f"]),
-    course: matchField(content, ["\\u8bfe\\u7a0b", "\\u62a5\\u540d\\u8bfe\\u7a0b", "\\u5728\\u8bfb\\u8bfe\\u7a0b"]),
-    teacher: matchField(content, ["\\u8001\\u5e08", "\\u6559\\u5e08", "\\u4e0a\\u8bfe\\u8001\\u5e08", "\\u6388\\u8bfe\\u8001\\u5e08"]),
-    lessonsLeft: matchNumberField(content, ["\\u5269\\u4f59\\u8bfe\\u65f6", "\\u5269\\u4f59\\u8282\\u6570", "\\u5269\\u4f59\\u8bfe\\u7a0b"], 4),
-    daysToEnd: matchNumberField(content, ["\\u5230\\u671f\\u5929\\u6570", "\\u9884\\u8ba1\\u8bfe\\u6d88\\u5929\\u6570", "\\u5269\\u4f59\\u5929\\u6570"], 14),
-    absentRate: matchNumberField(content, ["\\u7f3a\\u52e4\\u7387", "\\u8fd1\\u6708\\u7f3a\\u52e4\\u7387"], 0),
-    parentReplies: matchNumberField(content, ["\\u5bb6\\u957f\\u56de\\u590d", "\\u56de\\u590d\\u6b21\\u6570", "\\u6c9f\\u901a\\u6b21\\u6570"], 1),
-    homeworkMissed: matchNumberField(content, ["\\u4f5c\\u4e1a\\u7f3a\\u4ea4", "\\u7f3a\\u4ea4\\u6b21\\u6570"], 0),
-    renewalValue: matchNumberField(content, ["\\u7eed\\u8d39\\u91d1\\u989d", "\\u7f34\\u8d39\\u91d1\\u989d", "\\u91d1\\u989d"], 3980),
-    lastContact: matchField(content, ["\\u6700\\u8fd1\\u8054\\u7cfb", "\\u4e0a\\u6b21\\u8054\\u7cfb", "\\u8054\\u7cfb\\u65f6\\u95f4"], "\\u672a\\u8054\\u7cfb"),
+    name: matchField(content, ["\u59d3\u540d", "\u5b66\u5458", "\u5b66\u751f"]),
+    course: matchField(content, ["\u8bfe\u7a0b", "\u62a5\u540d\u8bfe\u7a0b", "\u5728\u8bfb\u8bfe\u7a0b"]),
+    teacher: matchField(content, ["\u8001\u5e08", "\u6559\u5e08", "\u4e0a\u8bfe\u8001\u5e08", "\u6388\u8bfe\u8001\u5e08"]),
+    lessonsLeft: matchNumberField(content, ["\u5269\u4f59\u8bfe\u65f6", "\u5269\u4f59\u8282\u6570", "\u5269\u4f59\u8bfe\u7a0b"], 4),
+    daysToEnd: matchNumberField(content, ["\u5230\u671f\u5929\u6570", "\u9884\u8ba1\u8bfe\u6d88\u5929\u6570", "\u5269\u4f59\u5929\u6570"], 14),
+    absentRate: matchNumberField(content, ["\u7f3a\u52e4\u7387", "\u8fd1\u6708\u7f3a\u52e4\u7387"], 0),
+    parentReplies: matchNumberField(content, ["\u5bb6\u957f\u56de\u590d", "\u56de\u590d\u6b21\u6570", "\u6c9f\u901a\u6b21\u6570"], 1),
+    homeworkMissed: matchNumberField(content, ["\u4f5c\u4e1a\u7f3a\u4ea4", "\u7f3a\u4ea4\u6b21\u6570"], 0),
+    renewalValue: matchNumberField(content, ["\u7eed\u8d39\u91d1\u989d", "\u7f34\u8d39\u91d1\u989d", "\u91d1\u989d"], 3980),
+    lastContact: matchField(content, ["\u6700\u8fd1\u8054\u7cfb", "\u4e0a\u6b21\u8054\u7cfb", "\u8054\u7cfb\u65f6\u95f4"], "\u672a\u8054\u7cfb"),
     proof: parseProofFromText(content)
   });
 }
@@ -879,17 +903,17 @@ function parseCsv(content, source) {
     const row = Object.fromEntries(headers.map((header, cellIndex) => [header, cells[cellIndex] || ""]));
     return normalizeCandidate({
       source: `${source}#${index + 1}`,
-      name: row.name || row["\\u59d3\\u540d"] || row["\\u5b66\\u5458"],
-      course: row.course || row["\\u8bfe\\u7a0b"],
-      teacher: row.teacher || row["\\u8001\\u5e08"] || row["\\u6559\\u5e08"],
-      lessonsLeft: toNumber(row.lessonsLeft || row["\\u5269\\u4f59\\u8bfe\\u65f6"], 4),
-      daysToEnd: toNumber(row.daysToEnd || row["\\u5230\\u671f\\u5929\\u6570"], 14),
-      absentRate: toNumber(row.absentRate || row["\\u7f3a\\u52e4\\u7387"], 0),
-      parentReplies: toNumber(row.parentReplies || row["\\u5bb6\\u957f\\u56de\\u590d"], 1),
-      homeworkMissed: toNumber(row.homeworkMissed || row["\\u4f5c\\u4e1a\\u7f3a\\u4ea4"], 0),
-      renewalValue: toNumber(row.renewalValue || row["\\u7eed\\u8d39\\u91d1\\u989d"] || row["\\u7f34\\u8d39\\u91d1\\u989d"], 3980),
-      lastContact: row.lastContact || row["\\u6700\\u8fd1\\u8054\\u7cfb"] || "\\u672a\\u8054\\u7cfb",
-      proof: [["\\u6210\\u957f\\u8bc1\\u636e", row.proof || row["\\u6210\\u957f\\u8bc1\\u636e"] || "\\u6765\\u81ea CSV \\u77e5\\u8bc6\\u5e93\\u5bfc\\u5165"]]
+      name: row.name || row["\u59d3\u540d"] || row["\u5b66\u5458"],
+      course: row.course || row["\u8bfe\u7a0b"],
+      teacher: row.teacher || row["\u8001\u5e08"] || row["\u6559\u5e08"],
+      lessonsLeft: toNumber(row.lessonsLeft || row["\u5269\u4f59\u8bfe\u65f6"], 4),
+      daysToEnd: toNumber(row.daysToEnd || row["\u5230\u671f\u5929\u6570"], 14),
+      absentRate: toNumber(row.absentRate || row["\u7f3a\u52e4\u7387"], 0),
+      parentReplies: toNumber(row.parentReplies || row["\u5bb6\u957f\u56de\u590d"], 1),
+      homeworkMissed: toNumber(row.homeworkMissed || row["\u4f5c\u4e1a\u7f3a\u4ea4"], 0),
+      renewalValue: toNumber(row.renewalValue || row["\u7eed\u8d39\u91d1\u989d"] || row["\u7f34\u8d39\u91d1\u989d"], 3980),
+      lastContact: row.lastContact || row["\u6700\u8fd1\u8054\u7cfb"] || "\u672a\u8054\u7cfb",
+      proof: [["\u6210\u957f\u8bc1\u636e", row.proof || row["\u6210\u957f\u8bc1\u636e"] || "\u6765\u81ea CSV \u77e5\u8bc6\u5e93\u5bfc\u5165"]]
     });
   }).filter(item => item.name);
 }
@@ -898,16 +922,16 @@ function normalizeCandidate(candidate) {
   return {
     source: candidate.source || "knowledge_base",
     name: String(candidate.name || "").trim(),
-    course: String(candidate.course || "\\u5f85\\u8bbe\\u7f6e\\u8bfe\\u7a0b").trim(),
-    teacher: String(candidate.teacher || "\\u5f85\\u5206\\u914d\\u8001\\u5e08").trim(),
+    course: String(candidate.course || "\u5f85\u8bbe\u7f6e\u8bfe\u7a0b").trim(),
+    teacher: String(candidate.teacher || "\u5f85\u5206\u914d\u8001\u5e08").trim(),
     lessonsLeft: toNumber(candidate.lessonsLeft, 4),
     daysToEnd: toNumber(candidate.daysToEnd, 14),
     absentRate: toNumber(candidate.absentRate, 0),
     parentReplies: toNumber(candidate.parentReplies, 1),
     homeworkMissed: toNumber(candidate.homeworkMissed, 0),
     renewalValue: toNumber(candidate.renewalValue, 3980),
-    lastContact: String(candidate.lastContact || "\\u672a\\u8054\\u7cfb").trim(),
-    proof: Array.isArray(candidate.proof) ? candidate.proof : [["\\u6210\\u957f\\u8bc1\\u636e", "\\u5df2\\u4ece\\u77e5\\u8bc6\\u5e93\\u91c7\\u96c6"]]
+    lastContact: String(candidate.lastContact || "\u672a\u8054\u7cfb").trim(),
+    proof: Array.isArray(candidate.proof) ? candidate.proof : [["\u6210\u957f\u8bc1\u636e", "\u5df2\u4ece\u77e5\u8bc6\u5e93\u91c7\u96c6"]]
   };
 }
 
@@ -1083,11 +1107,11 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/schedule/course-types") {
     const body = await readBody(req);
     const name = String(body.name || "").trim();
-    if (!name) return sendJson(res, 400, { error: "\\u8bfe\\u7a0b\\u7c7b\\u578b\\u540d\\u79f0\\u4e0d\\u80fd\\u4e3a\\u7a7a" });
+    if (!name) return sendJson(res, 400, { error: "\u8bfe\u7a0b\u7c7b\u578b\u540d\u79f0\u4e0d\u80fd\u4e3a\u7a7a" });
     const courseType = {
       id: nextId(schedule.courseTypes),
       name,
-      category: String(body.category || "\\u672a\\u5206\\u7c7b").trim(),
+      category: String(body.category || "\u672a\u5206\u7c7b").trim(),
       durationMinutes: toNumber(body.durationMinutes, 60),
       defaultCapacity: toNumber(body.defaultCapacity, 10),
       roomTypes: String(body.roomTypes || "").split(",").map(item => item.trim()).filter(Boolean),
@@ -1112,7 +1136,7 @@ async function handleApi(req, res, url) {
   if (req.method === "POST" && url.pathname === "/api/schedule/classes") {
     const body = await readBody(req);
     const name = String(body.name || "").trim();
-    if (!name || !body.courseTypeId || !body.teacherId) return sendJson(res, 400, { error: "\\u73ed\\u7ea7\\u540d\\u79f0\\u3001\\u8bfe\\u7a0b\\u7c7b\\u578b\\u548c\\u8001\\u5e08\\u4e3a\\u5fc5\\u586b\\u9879" });
+    if (!name || !body.courseTypeId || !body.teacherId) return sendJson(res, 400, { error: "\u73ed\u7ea7\u540d\u79f0\u3001\u8bfe\u7a0b\u7c7b\u578b\u548c\u8001\u5e08\u4e3a\u5fc5\u586b\u9879" });
     const classItem = {
       id: nextId(schedule.classes),
       name,
