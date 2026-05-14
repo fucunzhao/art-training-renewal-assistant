@@ -127,6 +127,48 @@ function summarizeTeacherSlots(slots = []) {
   };
 }
 
+function compactAvailabilitySlots(slots = []) {
+  const uniqueSlots = [];
+  const seen = new Set();
+
+  for (const slot of slots) {
+    const key = `${slot.date || ""}|${slot.dayOfWeek}|${slot.period || ""}|${slot.startTime}|${slot.endTime}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueSlots.push(slot);
+  }
+
+  return uniqueSlots;
+}
+
+function renderGroupedTeacherAvailability() {
+  const groups = new Map();
+
+  for (const slot of state.scheduleMeta.teacherAvailability) {
+    const teacherId = Number(slot.teacherId);
+    if (!groups.has(teacherId)) groups.set(teacherId, []);
+    groups.get(teacherId).push(slot);
+  }
+
+  if (!groups.size) return "<p class=\"empty-state\">\u6682\u65e0\u8001\u5e08\u53ef\u6388\u8bfe\u65f6\u95f4</p>";
+
+  const teacherMap = Object.fromEntries(state.scheduleMeta.teachers.map(item => [Number(item.id), item.name]));
+  return [...groups.entries()].map(([teacherId, slots]) => {
+    const uniqueSlots = compactAvailabilitySlots(slots);
+    const preview = uniqueSlots.slice(0, 3).map(formatTeacherSlot);
+    const extra = uniqueSlots.length > preview.length ? `\uff0c\u8fd8\u6709 ${uniqueSlots.length - preview.length} \u4e2a\u65f6\u6bb5` : "";
+    return `
+      <div class="compact-item availability-summary-item">
+        <span class="teacher-summary">
+          <strong>${teacherMap[teacherId] || "-"}</strong>
+          <span class="teacher-meta">${uniqueSlots.length} \u4e2a\u53ef\u6388\u8bfe\u65f6\u6bb5</span>
+          <small>${preview.join("\u3001")}${extra}</small>
+        </span>
+      </div>
+    `;
+  }).join("");
+}
+
 function renderNotifications(unreadCount) {
   document.getElementById("notificationBadge").textContent = unreadCount;
   const list = document.getElementById("notificationList");
@@ -245,11 +287,8 @@ function renderClasses() {
 }
 
 function renderAvailability() {
-  const teacherMap = Object.fromEntries(state.scheduleMeta.teachers.map(item => [item.id, item.name]));
   const studentMap = Object.fromEntries(state.scheduleMeta.students.map(item => [item.id, item.name]));
-  document.getElementById("teacherAvailabilityList").innerHTML = state.scheduleMeta.teacherAvailability.map(slot => `
-    <div class="compact-item"><span>${teacherMap[slot.teacherId] || "-"} \u00b7 ${dayName(slot.dayOfWeek)} ${slot.startTime}-${slot.endTime}</span></div>
-  `).join("") || "<p class=\"empty-state\">\u6682\u65e0\u8001\u5e08\u53ef\u6388\u8bfe\u65f6\u95f4</p>";
+  document.getElementById("teacherAvailabilityList").innerHTML = renderGroupedTeacherAvailability();
   document.getElementById("studentAvailabilityList").innerHTML = state.scheduleMeta.studentAvailability.map(slot => `
     <div class="compact-item"><span>${studentMap[slot.studentId] || "-"} \u00b7 ${dayName(slot.dayOfWeek)} ${slot.startTime}-${slot.endTime}</span></div>
   `).join("") || "<p class=\"empty-state\">\u6682\u65e0\u5b66\u751f\u53ef\u4e0a\u8bfe\u65f6\u95f4</p>";

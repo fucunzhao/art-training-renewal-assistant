@@ -1071,6 +1071,10 @@ li {
   word-break: break-word;
 }
 
+.availability-summary-item {
+  align-items: flex-start;
+}
+
 .calendar-picker {
   display: grid;
   gap: 8px;
