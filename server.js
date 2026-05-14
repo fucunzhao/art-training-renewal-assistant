@@ -575,6 +575,8 @@ function expandDatePeriods(dates, periods) {
 }
 
 function normalizeAvailabilitySlots(slots) {
+  const seen = new Set();
+
   return (Array.isArray(slots) ? slots : [])
     .map(slot => {
       const period = PERIOD_RULES[slot.period] || null;
@@ -585,7 +587,7 @@ function normalizeAvailabilitySlots(slots) {
 
       if (!dayOfWeek || !startTime || !endTime) return null;
 
-      return {
+      const normalized = {
         ...(date ? { date } : {}),
         dayOfWeek,
         period: slot.period || "custom",
@@ -593,6 +595,11 @@ function normalizeAvailabilitySlots(slots) {
         startTime,
         endTime
       };
+
+      const key = `${normalized.date || ""}|${normalized.dayOfWeek}|${normalized.period}|${normalized.startTime}|${normalized.endTime}`;
+      if (seen.has(key)) return null;
+      seen.add(key);
+      return normalized;
     })
     .filter(Boolean);
 }

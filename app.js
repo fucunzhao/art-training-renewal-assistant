@@ -95,6 +95,38 @@ function dayName(day) {
   return ["", "周一", "周二", "周三", "周四", "周五", "周六", "周日"][Number(day)] || "-";
 }
 
+function formatTeacherSlot(slot) {
+  const date = slot.date ? `${slot.date} ` : "";
+  const period = slot.periodName && slot.periodName !== "自定义" ? `${slot.periodName} ` : "";
+  return `${date}${dayName(slot.dayOfWeek)} ${period}${slot.startTime}-${slot.endTime}`;
+}
+
+function summarizeTeacherSlots(slots = []) {
+  const uniqueSlots = [];
+  const seen = new Set();
+
+  for (const slot of slots) {
+    const key = `${slot.date || ""}|${slot.dayOfWeek}|${slot.period || ""}|${slot.startTime}|${slot.endTime}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    uniqueSlots.push(slot);
+  }
+
+  if (!uniqueSlots.length) {
+    return {
+      countText: "未录入可授课时间",
+      previewText: "建议先补充可授课时间，否则无法参与推荐排课。"
+    };
+  }
+
+  const preview = uniqueSlots.slice(0, 3).map(formatTeacherSlot);
+  const extra = uniqueSlots.length > preview.length ? `，还有 ${uniqueSlots.length - preview.length} 个时段` : "";
+  return {
+    countText: `${uniqueSlots.length} 个可授课时段`,
+    previewText: `${preview.join("、")}${extra}`
+  };
+}
+
 function renderNotifications(unreadCount) {
   document.getElementById("notificationBadge").textContent = unreadCount;
   const list = document.getElementById("notificationList");
@@ -189,10 +221,14 @@ function renderCourseTypes() {
 
 function renderTeachers() {
   document.getElementById("teacherList").innerHTML = state.scheduleMeta.teachers.map(teacher => {
-    const slots = (teacher.availableTimes || []).map(slot => `${dayName(slot.dayOfWeek)} ${slot.startTime}-${slot.endTime}`).join("\u3001") || "\u672a\u5f55\u5165\u53ef\u6388\u8bfe\u65f6\u95f4";
+    const slots = summarizeTeacherSlots(teacher.availableTimes || []);
     return `
       <div class="compact-item teacher-item">
-        <span><strong>${teacher.name}</strong> \u00b7 ${teacher.employmentType || "\u672a\u8bbe\u7f6e"} \u00b7 ${teacher.courseNames || "\u672a\u7ed1\u5b9a\u8bfe\u7a0b"}<br><small>${teacher.phone || "\u672a\u586b\u7535\u8bdd"} \u00b7 ${slots}</small></span>
+        <span class="teacher-summary">
+          <strong>${teacher.name}</strong>
+          <span class="teacher-meta">${teacher.employmentType || "\u672a\u8bbe\u7f6e"} \u00b7 ${teacher.courseNames || "\u672a\u7ed1\u5b9a\u8bfe\u7a0b"} \u00b7 ${slots.countText}</span>
+          <small>${teacher.phone || "\u672a\u586b\u7535\u8bdd"} \u00b7 ${slots.previewText}</small>
+        </span>
         <button type="button" data-delete-teacher="${teacher.id}">\u5220\u9664</button>
       </div>
     `;

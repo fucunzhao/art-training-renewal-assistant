@@ -1045,8 +1045,30 @@ li {
   padding: 8px;
 }
 
-.teacher-item span {
+.teacher-item {
+  align-items: flex-start;
+}
+
+.teacher-summary {
+  display: grid;
+  gap: 3px;
   line-height: 1.55;
+  min-width: 0;
+}
+
+.teacher-meta {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.teacher-summary small {
+  display: -webkit-box;
+  max-width: 980px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .calendar-picker {
