@@ -22,6 +22,11 @@ const STUDENTS_KB_FILE = path.join(KNOWLEDGE_DIR, "students.json");
 const STUDENT_ASSET_DIR = path.join(KNOWLEDGE_DIR, "student_assets");
 const ADMIN_USER = process.env.ADMIN_USER || "admin";
 const ADMIN_PASS = process.env.ADMIN_PASS || "123456";
+const AI_PROVIDER = String(process.env.AI_PROVIDER || "").trim().toLowerCase();
+const HERMES_GATEWAY_URL = String(process.env.HERMES_GATEWAY_URL || "").trim();
+const HERMES_GATEWAY_TOKEN = String(process.env.HERMES_GATEWAY_TOKEN || "").trim();
+const HERMES_MODEL = String(process.env.HERMES_MODEL || "").trim();
+const HERMES_TIMEOUT_MS = Number(process.env.HERMES_TIMEOUT_MS || 12000);
 const COOKIE_NAME = "mvp_session";
 const sessions = new Map();
 
@@ -326,6 +331,108 @@ function makeMessage(student, tone = "warm") {
     return `${student.name}\u5bb6\u957f\u60a8\u597d\uff0c\u8fd9\u6bb5\u65f6\u95f4\u5b69\u5b50\u5df2\u7ecf\u8fdb\u5165\u66f4\u9700\u8981\u7cfb\u7edf\u6253\u78e8\u7684\u9636\u6bb5\u3002\n\n\u6211\u4eec\u6574\u7406\u4e86\u51e0\u70b9\u53d8\u5316\uff1a\n${proof}\n\n\u63a5\u4e0b\u6765\u53ef\u4ee5\u4e3a\u5b69\u5b50\u8bbe\u8ba1\u66f4\u5b8c\u6574\u7684\u9636\u6bb5\u76ee\u6807\uff0c\u5efa\u8bae\u9884\u7559\u4e0b\u4e00\u671f\u540d\u989d\u5e76\u5b89\u6392\u4e00\u6b21\u89c4\u5212\u6c9f\u901a\u3002`;
   }
   return `${student.name}\u5bb6\u957f\u60a8\u597d\uff0c\u548c\u60a8\u540c\u6b65\u4e00\u4e0b\u5b69\u5b50\u8fd1\u671f\u7684\u5b66\u4e60\u60c5\u51b5\uff1a\n\n${proof}\n\n\u76ee\u524d\u8fd8\u6709 ${student.lessonsLeft} \u8282\u8bfe\uff0c\u8ddd\u79bb\u8bfe\u5305\u7ed3\u675f\u7ea6 ${student.daysToEnd} \u5929\u3002\u6211\u4eec\u5efa\u8bae\u63d0\u524d\u89c4\u5212\u4e0b\u4e00\u9636\u6bb5\u7684\u5b66\u4e60\u76ee\u6807\uff0c\u8ba9\u8bfe\u7a0b\u8854\u63a5\u66f4\u987a\u3002`;
+}
+
+function hermesEnabled() {
+  return AI_PROVIDER === "hermes" && Boolean(HERMES_GATEWAY_URL);
+}
+
+function extractAiText(payload) {
+  if (typeof payload === "string") return payload.trim();
+  if (!payload || typeof payload !== "object") return "";
+  if (typeof payload.message === "string") return payload.message.trim();
+  if (typeof payload.text === "string") return payload.text.trim();
+  if (typeof payload.content === "string") return payload.content.trim();
+  if (typeof payload.result === "string") return payload.result.trim();
+  const choice = Array.isArray(payload.choices) ? payload.choices[0] : null;
+  if (typeof choice?.message?.content === "string") return choice.message.content.trim();
+  if (typeof choice?.text === "string") return choice.text.trim();
+  return "";
+}
+
+async function callHermesGateway(task, prompt, context = {}) {
+  if (!hermesEnabled()) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), HERMES_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(HERMES_GATEWAY_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(HERMES_GATEWAY_TOKEN ? {
+          Authorization: `Bearer ${HERMES_GATEWAY_TOKEN}`,
+          "X-Hermes-Gateway-Token": HERMES_GATEWAY_TOKEN
+        } : {})
+      },
+      body: JSON.stringify({
+        provider: "hermes",
+        model: HERMES_MODEL || undefined,
+        task,
+        prompt,
+        context
+      }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) return null;
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json()
+      : await response.text();
+    const text = extractAiText(payload);
+    return text || null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function buildStudentAiContext(student, tone) {
+  const enriched = enrichStudent(student);
+  return {
+    sourceOfTruth: "Zeabur system data is the business source of truth. Hermes may only generate suggestions.",
+    tone,
+    student: {
+      name: enriched.name,
+      course: enriched.course,
+      teacher: enriched.teacher,
+      lessonsLeft: enriched.lessonsLeft,
+      daysToEnd: enriched.daysToEnd,
+      absentRate: enriched.absentRate,
+      parentReplies: enriched.parentReplies,
+      homeworkMissed: enriched.homeworkMissed,
+      renewalValue: enriched.renewalValue,
+      lastContact: enriched.lastContact,
+      status: enriched.status,
+      riskScore: enriched.riskScore,
+      riskLevel: enriched.riskLevel?.text,
+      riskReasons: enriched.riskReasons,
+      nextAction: enriched.nextAction,
+      proof: Array.isArray(enriched.proof) ? enriched.proof : []
+    }
+  };
+}
+
+async function makeSmartMessage(student, tone = "warm") {
+  const fallback = makeMessage(student, tone);
+  const context = buildStudentAiContext(student, tone);
+  const toneName = {
+    warm: "\u6e29\u548c",
+    direct: "\u76f4\u63a5",
+    premium: "\u9ad8\u5ba2\u5355"
+  }[tone] || "\u6e29\u548c";
+  const prompt = [
+    "\u4f60\u662f\u827a\u672f\u57f9\u8bad\u673a\u6784\u7684\u7eed\u8d39\u6c9f\u901a\u52a9\u624b\u3002",
+    "\u8bf7\u57fa\u4e8e context.student \u4e2d\u7684\u4e1a\u52a1\u4e8b\u5b9e\u751f\u6210\u4e00\u6bb5\u5bb6\u957f\u6c9f\u901a\u8bdd\u672f\u3002",
+    "\u5fc5\u987b\u4ee5 Zeabur \u7cfb\u7edf\u6570\u636e\u4e3a\u4e8b\u5b9e\u4f9d\u636e\uff0c\u4e0d\u8981\u7f16\u9020\u8bfe\u65f6\u3001\u91d1\u989d\u3001\u72b6\u6001\u6216\u4f5c\u54c1\u3002",
+    `\u8bdd\u672f\u98ce\u683c\uff1a${toneName}\u3002`,
+    "\u8f93\u51fa\u7ed9\u5bb6\u957f\u7684\u6700\u7ec8\u6587\u672c\uff0c\u4e0d\u8981\u8f93\u51fa\u5206\u6790\u8fc7\u7a0b\u3002"
+  ].join("\n");
+  const text = await callHermesGateway("renewal_message", prompt, context);
+  return text ? { message: text, source: "hermes" } : { message: fallback, source: "template" };
 }
 
 function makeSummary(students) {
@@ -942,6 +1049,62 @@ function normalizeCandidate(candidate) {
   };
 }
 
+function parseJsonFromAiText(text) {
+  if (!text) return null;
+  const trimmed = String(text).trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {}
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1].trim());
+    } catch {}
+  }
+
+  const arrayStart = trimmed.indexOf("[");
+  const arrayEnd = trimmed.lastIndexOf("]");
+  if (arrayStart >= 0 && arrayEnd > arrayStart) {
+    try {
+      return JSON.parse(trimmed.slice(arrayStart, arrayEnd + 1));
+    } catch {}
+  }
+
+  const objectStart = trimmed.indexOf("{");
+  const objectEnd = trimmed.lastIndexOf("}");
+  if (objectStart >= 0 && objectEnd > objectStart) {
+    try {
+      return JSON.parse(trimmed.slice(objectStart, objectEnd + 1));
+    } catch {}
+  }
+
+  return null;
+}
+
+async function extractWithHermes(content, fileName) {
+  if (!hermesEnabled()) return null;
+  const prompt = [
+    "\u4f60\u662f\u827a\u57f9\u673a\u6784\u7684\u77e5\u8bc6\u5e93\u5b66\u5458\u4fe1\u606f\u8bc6\u522b\u52a9\u624b\u3002",
+    "\u8bf7\u4ece context.content \u4e2d\u63d0\u53d6\u5b66\u5458\u5019\u9009\u4fe1\u606f\u3002",
+    "\u53ea\u80fd\u6839\u636e\u539f\u6587\u63d0\u53d6\uff0c\u4e0d\u8981\u7f16\u9020\u4e1a\u52a1\u4e8b\u5b9e\u3002\u7f3a\u5931\u5b57\u6bb5\u53ef\u7559\u7a7a\u6216\u4f7f\u7528\u5408\u7406\u9ed8\u8ba4\u3002",
+    "\u8bf7\u53ea\u8f93\u51fa JSON \u6570\u7ec4\uff0c\u4e0d\u8981\u8f93\u51fa Markdown \u6216\u89e3\u91ca\u3002",
+    "\u6bcf\u4e2a\u5bf9\u8c61\u5b57\u6bb5\uff1aname, course, teacher, lessonsLeft, daysToEnd, absentRate, parentReplies, homeworkMissed, renewalValue, lastContact, proof\u3002",
+    "proof \u4f7f\u7528 [[\"\u6210\u957f\u8bc1\u636e\", \"...\"]] \u683c\u5f0f\u3002"
+  ].join("\n");
+  const text = await callHermesGateway("knowledge_extract", prompt, {
+    sourceOfTruth: "The uploaded Zeabur knowledge file is the only source for business facts.",
+    fileName,
+    content
+  });
+  const parsed = parseJsonFromAiText(text);
+  const rows = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" ? [parsed] : []);
+  const candidates = rows
+    .map((row, index) => normalizeCandidate({ ...row, source: `${fileName} #Hermes ${index + 1}` }))
+    .filter(candidate => candidate.name);
+  return candidates.length ? candidates : null;
+}
+
 async function extractFromKnowledgeFile(fileName) {
   const filePath = getFilePathInKnowledgeBase(fileName);
   if (!filePath) return [];
@@ -956,6 +1119,9 @@ async function extractFromKnowledgeFile(fileName) {
     const rows = Array.isArray(parsed) ? parsed : [parsed];
     return rows.map((row, index) => normalizeCandidate({ ...row, source: `${fileName} #${index + 1}` }));
   }
+
+  const hermesCandidates = await extractWithHermes(content, fileName);
+  if (hermesCandidates) return hermesCandidates;
 
   return [normalizeCandidate(extractStudentFromText(content, fileName))];
 }
@@ -1040,7 +1206,13 @@ async function handleApi(req, res, url) {
   const user = currentUser(req);
   if (req.method === "GET" && url.pathname === "/api/session") {
     if (!user) return sendJson(res, 401, { error: "\u672a\u767b\u5f55" });
-    sendJson(res, 200, { user });
+    sendJson(res, 200, {
+      user,
+      ai: {
+        provider: hermesEnabled() ? "hermes" : "none",
+        hermesEnabled: hermesEnabled()
+      }
+    });
     return;
   }
 
@@ -1446,7 +1618,8 @@ async function handleApi(req, res, url) {
   if (req.method === "GET" && messageMatch) {
     const student = students.find(item => item.id === Number(messageMatch[1]));
     if (!student) return sendJson(res, 404, { error: "Student not found" });
-    sendJson(res, 200, { message: makeMessage(student, url.searchParams.get("tone") || "warm") });
+    const result = await makeSmartMessage(student, url.searchParams.get("tone") || "warm");
+    sendJson(res, 200, result);
     return;
   }
 
