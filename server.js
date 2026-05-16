@@ -340,6 +340,9 @@ function hermesEnabled() {
 function extractAiText(payload) {
   if (typeof payload === "string") return payload.trim();
   if (!payload || typeof payload !== "object") return "";
+  if (typeof payload.data?.text === "string") return payload.data.text.trim();
+  if (typeof payload.data?.message === "string") return payload.data.message.trim();
+  if (typeof payload.data?.content === "string") return payload.data.content.trim();
   if (typeof payload.message === "string") return payload.message.trim();
   if (typeof payload.text === "string") return payload.text.trim();
   if (typeof payload.content === "string") return payload.content.trim();
@@ -350,29 +353,29 @@ function extractAiText(payload) {
   return "";
 }
 
-async function callHermesGateway(task, prompt, context = {}) {
+function hermesEndpoint(pathname) {
+  const base = HERMES_GATEWAY_URL.replace(/\/+$/, "");
+  return `${base}${pathname}`;
+}
+
+async function postHermes(pathname, payload) {
   if (!hermesEnabled()) return null;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), HERMES_TIMEOUT_MS);
 
   try {
-    const response = await fetch(HERMES_GATEWAY_URL, {
+    const response = await fetch(hermesEndpoint(pathname), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(HERMES_GATEWAY_TOKEN ? {
           Authorization: `Bearer ${HERMES_GATEWAY_TOKEN}`,
-          "X-Hermes-Gateway-Token": HERMES_GATEWAY_TOKEN
+          "X-Hermes-Gateway-Token": HERMES_GATEWAY_TOKEN,
+          "X-API-Key": HERMES_GATEWAY_TOKEN
         } : {})
       },
-      body: JSON.stringify({
-        provider: "hermes",
-        model: HERMES_MODEL || undefined,
-        task,
-        prompt,
-        context
-      }),
+      body: JSON.stringify(payload),
       signal: controller.signal
     });
 
@@ -381,8 +384,7 @@ async function callHermesGateway(task, prompt, context = {}) {
     const payload = contentType.includes("application/json")
       ? await response.json()
       : await response.text();
-    const text = extractAiText(payload);
-    return text || null;
+    return payload || null;
   } catch {
     return null;
   } finally {
@@ -416,6 +418,13 @@ function buildStudentAiContext(student, tone) {
   };
 }
 
+function proofText(student) {
+  return (Array.isArray(student.proof) ? student.proof : [])
+    .map(item => Array.isArray(item) ? `${item[0]}：${item[1]}` : String(item || ""))
+    .filter(Boolean)
+    .join("\n");
+}
+
 async function makeSmartMessage(student, tone = "warm") {
   const fallback = makeMessage(student, tone);
   const context = buildStudentAiContext(student, tone);
@@ -424,14 +433,28 @@ async function makeSmartMessage(student, tone = "warm") {
     direct: "\u76f4\u63a5",
     premium: "\u9ad8\u5ba2\u5355"
   }[tone] || "\u6e29\u548c";
-  const prompt = [
-    "\u4f60\u662f\u827a\u672f\u57f9\u8bad\u673a\u6784\u7684\u7eed\u8d39\u6c9f\u901a\u52a9\u624b\u3002",
-    "\u8bf7\u57fa\u4e8e context.student \u4e2d\u7684\u4e1a\u52a1\u4e8b\u5b9e\u751f\u6210\u4e00\u6bb5\u5bb6\u957f\u6c9f\u901a\u8bdd\u672f\u3002",
-    "\u5fc5\u987b\u4ee5 Zeabur \u7cfb\u7edf\u6570\u636e\u4e3a\u4e8b\u5b9e\u4f9d\u636e\uff0c\u4e0d\u8981\u7f16\u9020\u8bfe\u65f6\u3001\u91d1\u989d\u3001\u72b6\u6001\u6216\u4f5c\u54c1\u3002",
-    `\u8bdd\u672f\u98ce\u683c\uff1a${toneName}\u3002`,
-    "\u8f93\u51fa\u7ed9\u5bb6\u957f\u7684\u6700\u7ec8\u6587\u672c\uff0c\u4e0d\u8981\u8f93\u51fa\u5206\u6790\u8fc7\u7a0b\u3002"
-  ].join("\n");
-  const text = await callHermesGateway("renewal_message", prompt, context);
+  const payload = await postHermes("/api/v1/huashu", {
+    student_name: context.student.name,
+    course: context.student.course,
+    teacher: context.student.teacher,
+    remaining_lessons: context.student.lessonsLeft,
+    expected_days: context.student.daysToEnd,
+    absence_rate: context.student.absentRate,
+    parent_replies: context.student.parentReplies,
+    homework_missed: context.student.homeworkMissed,
+    renewal_value: context.student.renewalValue,
+    last_contact: context.student.lastContact,
+    risk_score: context.student.riskScore,
+    risk_level: context.student.riskLevel,
+    risk_factors: context.student.riskReasons,
+    next_action: context.student.nextAction,
+    growth_evidence: proofText(student),
+    scenario: "\u7eed\u8d39",
+    tone: toneName,
+    model: HERMES_MODEL || undefined,
+    source_of_truth: "\u4e1a\u52a1\u4e8b\u5b9e\u4ee5 Zeabur \u7cfb\u7edf\u4f20\u5165\u7684\u5b66\u5458\u6570\u636e\u4e3a\u51c6\uff0cHermes \u53ea\u751f\u6210\u8bdd\u672f\u5efa\u8bae\u3002"
+  });
+  const text = extractAiText(payload);
   return text ? { message: text, source: "hermes" } : { message: fallback, source: "template" };
 }
 
@@ -1082,23 +1105,52 @@ function parseJsonFromAiText(text) {
   return null;
 }
 
+function candidateRowsFromHermesPayload(payload) {
+  if (!payload) return [];
+  const data = payload.data ?? payload;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.students)) return data.students;
+  if (Array.isArray(data?.candidates)) return data.candidates;
+  if (Array.isArray(data?.items)) return data.items;
+  if (Array.isArray(data?.records)) return data.records;
+  if (typeof data?.text === "string") {
+    const parsed = parseJsonFromAiText(data.text);
+    return Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+  }
+  if (typeof data?.result === "string") {
+    const parsed = parseJsonFromAiText(data.result);
+    return Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+  }
+  if (typeof payload.message === "string") {
+    const parsed = parseJsonFromAiText(payload.message);
+    return Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
+  }
+  return data && typeof data === "object" ? [data] : [];
+}
+
 async function extractWithHermes(content, fileName) {
   if (!hermesEnabled()) return null;
-  const prompt = [
-    "\u4f60\u662f\u827a\u57f9\u673a\u6784\u7684\u77e5\u8bc6\u5e93\u5b66\u5458\u4fe1\u606f\u8bc6\u522b\u52a9\u624b\u3002",
-    "\u8bf7\u4ece context.content \u4e2d\u63d0\u53d6\u5b66\u5458\u5019\u9009\u4fe1\u606f\u3002",
-    "\u53ea\u80fd\u6839\u636e\u539f\u6587\u63d0\u53d6\uff0c\u4e0d\u8981\u7f16\u9020\u4e1a\u52a1\u4e8b\u5b9e\u3002\u7f3a\u5931\u5b57\u6bb5\u53ef\u7559\u7a7a\u6216\u4f7f\u7528\u5408\u7406\u9ed8\u8ba4\u3002",
-    "\u8bf7\u53ea\u8f93\u51fa JSON \u6570\u7ec4\uff0c\u4e0d\u8981\u8f93\u51fa Markdown \u6216\u89e3\u91ca\u3002",
-    "\u6bcf\u4e2a\u5bf9\u8c61\u5b57\u6bb5\uff1aname, course, teacher, lessonsLeft, daysToEnd, absentRate, parentReplies, homeworkMissed, renewalValue, lastContact, proof\u3002",
-    "proof \u4f7f\u7528 [[\"\u6210\u957f\u8bc1\u636e\", \"...\"]] \u683c\u5f0f\u3002"
-  ].join("\n");
-  const text = await callHermesGateway("knowledge_extract", prompt, {
-    sourceOfTruth: "The uploaded Zeabur knowledge file is the only source for business facts.",
+  const payload = await postHermes("/api/v1/import-recognize", {
     fileName,
-    content
+    file_name: fileName,
+    content,
+    model: HERMES_MODEL || undefined,
+    source_of_truth: "\u4e0a\u4f20\u5230 Zeabur \u77e5\u8bc6\u5e93\u7684\u6587\u4ef6\u662f\u672c\u6b21\u8bc6\u522b\u7684\u552f\u4e00\u4e1a\u52a1\u4e8b\u5b9e\u6765\u6e90\u3002",
+    output_schema: {
+      name: "\u5b66\u5458\u59d3\u540d",
+      course: "\u8bfe\u7a0b",
+      teacher: "\u8001\u5e08",
+      lessonsLeft: "\u5269\u4f59\u8bfe\u65f6",
+      daysToEnd: "\u9884\u8ba1\u8bfe\u6d88\u5929\u6570",
+      absentRate: "\u7f3a\u52e4\u7387",
+      parentReplies: "\u5bb6\u957f\u56de\u590d\u6b21\u6570",
+      homeworkMissed: "\u4f5c\u4e1a\u7f3a\u4ea4\u6b21\u6570",
+      renewalValue: "\u7eed\u8d39\u91d1\u989d",
+      lastContact: "\u6700\u8fd1\u8054\u7cfb",
+      proof: "\u6210\u957f\u8bc1\u636e"
+    }
   });
-  const parsed = parseJsonFromAiText(text);
-  const rows = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === "object" ? [parsed] : []);
+  const rows = candidateRowsFromHermesPayload(payload);
   const candidates = rows
     .map((row, index) => normalizeCandidate({ ...row, source: `${fileName} #Hermes ${index + 1}` }))
     .filter(candidate => candidate.name);
