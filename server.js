@@ -509,6 +509,37 @@ async function makeSmartMessage(student, tone = "warm") {
   return text ? { message: text, source: "hermes" } : { message: fallback, source: "template" };
 }
 
+function makeLessonFeedbackTemplate(record, student) {
+  const note = record.note || "\u672c\u6b21\u8bfe\u5802\u8868\u73b0\u5df2\u8bb0\u5f55\uff0c\u540e\u7eed\u53ef\u7ee7\u7eed\u8865\u5145\u4f5c\u54c1\u548c\u7ec3\u4e60\u60c5\u51b5\u3002";
+  return `${student.name}\u5bb6\u957f\u60a8\u597d\uff0c\u548c\u60a8\u540c\u6b65\u4e00\u4e0b\u4eca\u5929\u7684\u8bfe\u5802\u60c5\u51b5\uff1a
+
+\u8bfe\u7a0b\uff1a${record.course || student.course || "\u8bfe\u7a0b"}
+\u8001\u5e08\uff1a${record.teacher || student.teacher || "\u4efb\u8bfe\u8001\u5e08"}
+\u8bfe\u5802\u8bb0\u5f55\uff1a${note}
+
+\u4ece\u8fd9\u6b21\u8bfe\u6765\u770b\uff0c\u5b69\u5b50\u7684\u5b66\u4e60\u8fc7\u7a0b\u662f\u6709\u79ef\u7d2f\u7684\u3002\u5efa\u8bae\u56de\u5bb6\u540e\u7b80\u5355\u56de\u987e\u4eca\u5929\u7684\u5185\u5bb9\uff0c\u4e0b\u6b21\u8bfe\u6211\u4eec\u4f1a\u7ee7\u7eed\u5e2e\u5b69\u5b50\u5de9\u56fa\u548c\u63d0\u5347\u3002`;
+}
+
+async function makeSmartLessonFeedback(record, student) {
+  const fallback = makeLessonFeedbackTemplate(record, student);
+  const payload = await postHermes("/api/v1/summary", {
+    student_name: student.name,
+    course: record.course || student.course,
+    teacher: record.teacher || student.teacher,
+    class_date: record.date,
+    attendance_status: record.status,
+    consumed_lessons: record.consumedLessons,
+    remaining_lessons: student.lessonsLeft,
+    teacher_note: record.note || "",
+    scenario: "\u8bfe\u540e\u5bb6\u957f\u53cd\u9988",
+    output_format: "\u5fae\u4fe1\u5bb6\u957f\u7248\u53cd\u9988+\u6210\u957f\u8bc1\u636e+\u4e0b\u6b21\u5efa\u8bae",
+    model: HERMES_MODEL || undefined,
+    source_of_truth: "\u4e1a\u52a1\u4e8b\u5b9e\u4ee5 Zeabur \u7cfb\u7edf\u4f20\u5165\u7684\u8bfe\u6d88\u548c\u5b66\u5458\u6570\u636e\u4e3a\u51c6\uff0cHermes \u53ea\u751f\u6210\u8868\u8fbe\u5efa\u8bae\u3002"
+  });
+  const text = extractAiText(payload);
+  return text ? { text, source: "hermes" } : { text: fallback, source: "template" };
+}
+
 function makeSummary(students) {
   const enriched = students.map(enrichStudent);
   const highRisk = enriched.filter(student => student.riskScore >= 72);
@@ -838,6 +869,48 @@ function completeCommunicationRecord(record, students, user) {
   }
 
   return { record, student };
+}
+
+async function generateAttendanceFeedback(record, students, communications, user) {
+  if (!record) return { error: "\u8bfe\u6d88\u8bb0\u5f55\u4e0d\u5b58\u5728" };
+  if (record.status === "\u4f5c\u5e9f") return { error: "\u5df2\u4f5c\u5e9f\u7684\u8bfe\u6d88\u8bb0\u5f55\u4e0d\u80fd\u751f\u6210\u53cd\u9988" };
+
+  const student = students.find(item => item.id === Number(record.studentId));
+  if (!student) return { error: "\u5b66\u5458\u4e0d\u5b58\u5728" };
+
+  const feedback = await makeSmartLessonFeedback(record, student);
+  record.feedback = {
+    text: feedback.text,
+    source: feedback.source,
+    generatedAt: new Date().toISOString(),
+    generatedBy: user?.username || ""
+  };
+
+  const communication = {
+    id: nextId(communications),
+    date: dateOnly(record.date),
+    studentId: student.id,
+    studentName: student.name,
+    scenario: "\u8bfe\u5802\u53cd\u9988",
+    channel: "\u5fae\u4fe1",
+    nextFollowUp: "",
+    status: "\u5df2\u5b8c\u6210",
+    content: feedback.text,
+    source: feedback.source,
+    attendanceId: record.id,
+    operator: user?.username || "",
+    createdAt: new Date().toISOString(),
+    completedAt: new Date().toISOString(),
+    completedBy: user?.username || ""
+  };
+  communications.unshift(communication);
+
+  student.lastContact = "\u4eca\u5929";
+  student.parentReplies = Math.max(1, toNumber(student.parentReplies, 0));
+  student.status = "\u5df2\u8ddf\u8fdb";
+  student.updatedAt = new Date().toISOString();
+
+  return { record, communication, student };
 }
 
 function dateRangeOverlaps(startA, endA, startB, endB) {
@@ -1609,6 +1682,26 @@ async function handleApi(req, res, url) {
     sendJson(res, 200, {
       record: result.record,
       student: result.student ? enrichStudent(result.student) : null,
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      businessSummary: makeSummary(students),
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
+
+  const attendanceFeedbackMatch = url.pathname.match(/^\/api\/p0\/attendance\/(\d+)\/feedback$/);
+  if (req.method === "POST" && attendanceFeedbackMatch) {
+    await readBody(req);
+    const record = attendanceRecords.find(item => item.id === Number(attendanceFeedbackMatch[1]));
+    const result = await generateAttendanceFeedback(record, students, communicationRecords, user);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    await writeAttendanceRecords(attendanceRecords);
+    await writeCommunicationRecords(communicationRecords);
+    await writeStudents(students);
+    sendJson(res, 200, {
+      record: result.record,
+      communication: result.communication,
+      student: enrichStudent(result.student),
       students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
       businessSummary: makeSummary(students),
       summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)

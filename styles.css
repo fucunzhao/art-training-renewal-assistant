@@ -621,6 +621,17 @@ h3 {
   font-size: 12px;
 }
 
+.p0-record-list em.ok {
+  color: var(--green);
+}
+
+.record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .p0-record-list small {
   color: var(--muted);
   line-height: 1.45;

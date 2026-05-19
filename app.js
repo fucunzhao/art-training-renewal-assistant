@@ -163,8 +163,9 @@ function renderP0Dashboard(summary = null) {
 function recordSnippet(item, type) {
   const statusTag = item.status === "作废" ? "<em>已作废</em>" : "";
   if (type === "attendance") {
-    const action = item.status === "作废" ? "" : `<button type="button" data-void-attendance="${item.id}">作废</button>`;
-    return `<div><strong>${item.date} · ${item.studentName || studentNameById(item.studentId)} ${statusTag}</strong><small>${item.status} · 扣 ${item.consumedLessons ?? item.lessons ?? 0} 课时 · ${item.course || "未填课程"}</small></div>${action}`;
+    const feedbackTag = item.feedback ? "<em class=\"ok\">已反馈</em>" : "";
+    const actions = item.status === "作废" ? "" : `<span class="record-actions"><button type="button" data-feedback-attendance="${item.id}">${item.feedback ? "再生成" : "生成反馈"}</button><button type="button" data-void-attendance="${item.id}">作废</button></span>`;
+    return `<div><strong>${item.date} · ${item.studentName || studentNameById(item.studentId)} ${statusTag} ${feedbackTag}</strong><small>${item.status} · 扣 ${item.consumedLessons ?? item.lessons ?? 0} 课时 · ${item.course || "未填课程"}</small></div>${actions}`;
   }
   if (type === "finance") {
     const prefix = item.direction === "income" ? "收入" : "支出";
@@ -222,7 +223,7 @@ function renderStudentLedger(student) {
 
   renderLedgerList("studentAttendanceLedger", attendance, "暂无课消记录", item => `
     <article class="${item.status === "作废" ? "voided" : ""}">
-      <strong>${item.date} · ${item.status}</strong>
+      <strong>${item.date} · ${item.status}${item.feedback ? " · 已生成反馈" : ""}</strong>
       <small>${item.course || "未填课程"} · 扣 ${item.consumedLessons || 0} 课时 · 剩 ${item.afterLessons ?? "-"} 课时</small>
     </article>
   `);
@@ -951,8 +952,12 @@ function bindEvents() {
   document.getElementById("p0RefreshButton").addEventListener("click", () => loadP0Data().then(() => showToast("P0 业务记录已刷新")).catch(error => showToast(error.message)));
   document.querySelector(".p0-records").addEventListener("click", event => {
     const attendanceButton = event.target.closest("[data-void-attendance]");
+    const feedbackButton = event.target.closest("[data-feedback-attendance]");
     const financeButton = event.target.closest("[data-void-finance]");
     const communicationButton = event.target.closest("[data-complete-communication]");
+    if (feedbackButton) {
+      applyP0Mutation(`/api/p0/attendance/${feedbackButton.dataset.feedbackAttendance}/feedback`, "课后反馈已生成并保存为沟通记录").catch(error => showToast(error.message));
+    }
     if (attendanceButton && window.confirm("作废这条课消记录并回滚学员课时？")) {
       applyP0Mutation(`/api/p0/attendance/${attendanceButton.dataset.voidAttendance}/void`, "课消记录已作废，课时已回滚").catch(error => showToast(error.message));
     }
