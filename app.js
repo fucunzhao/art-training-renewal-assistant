@@ -139,13 +139,15 @@ function renderP0Dashboard(summary = null) {
   const attendance = state.p0Records.attendance;
   const finance = state.p0Records.finance;
   const communications = state.p0Records.communications;
-  const monthAttendance = attendance.filter(item => isSameMonth(item.date));
-  const monthIncome = finance.filter(item => item.direction === "income" && isSameMonth(item.date)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const monthExpense = finance.filter(item => item.direction === "expense" && isSameMonth(item.date)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const activeAttendance = attendance.filter(item => item.status !== "作废");
+  const activeFinance = finance.filter(item => item.status !== "作废");
+  const monthAttendance = activeAttendance.filter(item => isSameMonth(item.date));
+  const monthIncome = activeFinance.filter(item => item.direction === "income" && isSameMonth(item.date)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const monthExpense = activeFinance.filter(item => item.direction === "expense" && isSameMonth(item.date)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const followUps = communications.filter(item => item.status === "待跟进").length;
 
   const values = {
-    p0TodayAttendance: attendance.filter(item => isToday(item.date)).length,
+    p0TodayAttendance: activeAttendance.filter(item => isToday(item.date)).length,
     p0MonthLessons: monthAttendance.reduce((sum, item) => sum + Number(item.consumedLessons ?? item.lessons ?? 0), 0),
     p0MonthIncome: currency.format(monthIncome),
     p0MonthProfit: currency.format(monthIncome - monthExpense),
@@ -159,14 +161,18 @@ function renderP0Dashboard(summary = null) {
 }
 
 function recordSnippet(item, type) {
+  const statusTag = item.status === "作废" ? "<em>已作废</em>" : "";
   if (type === "attendance") {
-    return `<strong>${item.date} · ${item.studentName || studentNameById(item.studentId)}</strong><small>${item.status} · 扣 ${item.consumedLessons ?? item.lessons ?? 0} 课时 · ${item.course || "未填课程"}</small>`;
+    const action = item.status === "作废" ? "" : `<button type="button" data-void-attendance="${item.id}">作废</button>`;
+    return `<div><strong>${item.date} · ${item.studentName || studentNameById(item.studentId)} ${statusTag}</strong><small>${item.status} · 扣 ${item.consumedLessons ?? item.lessons ?? 0} 课时 · ${item.course || "未填课程"}</small></div>${action}`;
   }
   if (type === "finance") {
     const prefix = item.direction === "income" ? "收入" : "支出";
-    return `<strong>${item.date} · ${prefix} ${currency.format(Number(item.amount || 0))}</strong><small>${item.category} · ${item.studentName || studentNameById(item.studentId)} · ${item.paymentMethod || "未填方式"}</small>`;
+    const action = item.status === "作废" ? "" : `<button type="button" data-void-finance="${item.id}">作废</button>`;
+    return `<div><strong>${item.date} · ${prefix} ${currency.format(Number(item.amount || 0))} ${statusTag}</strong><small>${item.category} · ${item.studentName || studentNameById(item.studentId)} · ${item.paymentMethod || "未填方式"}</small></div>${action}`;
   }
-  return `<strong>${item.date} · ${item.studentName || studentNameById(item.studentId)}</strong><small>${item.scenario} · ${item.channel} · ${item.status}</small>`;
+  const action = item.status === "待跟进" ? `<button type="button" data-complete-communication="${item.id}">完成</button>` : "";
+  return `<div><strong>${item.date} · ${item.studentName || studentNameById(item.studentId)}</strong><small>${item.scenario} · ${item.channel} · ${item.status}</small></div>${action}`;
 }
 
 function renderP0RecordList(id, records, type) {
@@ -177,6 +183,61 @@ function renderP0RecordList(id, records, type) {
     return;
   }
   container.innerHTML = records.slice(0, 6).map(item => `<article>${recordSnippet(item, type)}</article>`).join("");
+}
+
+function ensureStudentLedgerSection() {
+  if (document.getElementById("studentAttendanceLedger")) return;
+  const growthSection = document.querySelector(".growth-section");
+  if (!growthSection) return;
+  const section = document.createElement("div");
+  section.className = "student-ledger-section";
+  section.innerHTML = `
+    <div class="section-title"><h3>业务记录</h3><small>课消、缴费与家校沟通历史</small></div>
+    <div class="student-ledger-grid">
+      <div><h4>课消记录</h4><div id="studentAttendanceLedger" class="student-ledger-list"></div></div>
+      <div><h4>缴费记录</h4><div id="studentFinanceLedger" class="student-ledger-list"></div></div>
+      <div><h4>沟通记录</h4><div id="studentCommunicationLedger" class="student-ledger-list"></div></div>
+    </div>
+  `;
+  growthSection.insertAdjacentElement("afterend", section);
+}
+
+function renderLedgerList(id, records, emptyText, renderItem) {
+  const container = document.getElementById(id);
+  if (!container) return;
+  if (!records.length) {
+    container.innerHTML = `<p class="empty-state">${emptyText}</p>`;
+    return;
+  }
+  container.innerHTML = records.slice(0, 6).map(renderItem).join("");
+}
+
+function renderStudentLedger(student) {
+  ensureStudentLedgerSection();
+  if (!student) return;
+  const studentId = String(student.id);
+  const attendance = state.p0Records.attendance.filter(item => String(item.studentId) === studentId);
+  const finance = state.p0Records.finance.filter(item => String(item.studentId) === studentId);
+  const communications = state.p0Records.communications.filter(item => String(item.studentId) === studentId);
+
+  renderLedgerList("studentAttendanceLedger", attendance, "暂无课消记录", item => `
+    <article class="${item.status === "作废" ? "voided" : ""}">
+      <strong>${item.date} · ${item.status}</strong>
+      <small>${item.course || "未填课程"} · 扣 ${item.consumedLessons || 0} 课时 · 剩 ${item.afterLessons ?? "-"} 课时</small>
+    </article>
+  `);
+  renderLedgerList("studentFinanceLedger", finance, "暂无缴费记录", item => `
+    <article class="${item.status === "作废" ? "voided" : ""}">
+      <strong>${item.date} · ${item.direction === "income" ? "收入" : "支出"} ${currency.format(item.amount || 0)}</strong>
+      <small>${item.category} · ${item.paymentMethod || "未填方式"} · ${item.status || "有效"}</small>
+    </article>
+  `);
+  renderLedgerList("studentCommunicationLedger", communications, "暂无沟通记录", item => `
+    <article>
+      <strong>${item.date} · ${item.scenario}</strong>
+      <small>${item.channel} · ${item.status}${item.nextFollowUp ? ` · 下次 ${item.nextFollowUp}` : ""}</small>
+    </article>
+  `);
 }
 
 function renderP0Records(summary = null) {
@@ -208,6 +269,17 @@ async function createP0Record(collection, payload) {
     render();
   }
   return data;
+}
+
+async function applyP0Mutation(path, successText) {
+  const data = await api(path, { method: "POST", body: JSON.stringify({ reason: "前端作废" }) });
+  await loadP0Data();
+  if (data.students) {
+    state.students = data.students;
+    if (data.businessSummary) renderSummary(data.businessSummary);
+  }
+  render();
+  showToast(successText);
 }
 
 function filteredStudents() {
@@ -511,6 +583,7 @@ function renderDetail() {
   document.getElementById("nextAction").textContent = student.nextAction;
   document.getElementById("riskReasons").innerHTML = student.riskReasons.map(reason => `<li>${reason}</li>`).join("");
   document.getElementById("growthTimeline").innerHTML = student.proof.map(item => `<article class="proof-card"><strong>${item[0]}</strong><p>${item[1]}</p></article>`).join("");
+  renderStudentLedger(student);
   renderMessage(student).catch(error => showToast(error.message));
 }
 
@@ -824,6 +897,20 @@ function bindEvents() {
     showToast("已把当前 Hermes 话术带入沟通记录");
   });
   document.getElementById("p0RefreshButton").addEventListener("click", () => loadP0Data().then(() => showToast("P0 业务记录已刷新")).catch(error => showToast(error.message)));
+  document.querySelector(".p0-records").addEventListener("click", event => {
+    const attendanceButton = event.target.closest("[data-void-attendance]");
+    const financeButton = event.target.closest("[data-void-finance]");
+    const communicationButton = event.target.closest("[data-complete-communication]");
+    if (attendanceButton && window.confirm("作废这条课消记录并回滚学员课时？")) {
+      applyP0Mutation(`/api/p0/attendance/${attendanceButton.dataset.voidAttendance}/void`, "课消记录已作废，课时已回滚").catch(error => showToast(error.message));
+    }
+    if (financeButton && window.confirm("作废这条财务流水？若它曾增加课时，将同步回滚。")) {
+      applyP0Mutation(`/api/p0/finance/${financeButton.dataset.voidFinance}/void`, "财务流水已作废").catch(error => showToast(error.message));
+    }
+    if (communicationButton) {
+      applyP0Mutation(`/api/p0/communications/${communicationButton.dataset.completeCommunication}/complete`, "沟通记录已标记完成").catch(error => showToast(error.message));
+    }
+  });
 
   document.getElementById("teacherForm").addEventListener("submit", event => { event.preventDefault(); createTeacher(event.currentTarget).catch(error => showToast(error.message)); });
   document.getElementById("teacherMonth").addEventListener("change", renderTeacherCalendar);

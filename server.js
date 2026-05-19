@@ -542,7 +542,8 @@ function attendanceConsumesLessons(status) {
 }
 
 function makeP0Summary(attendance, finance, communications) {
-  const monthAttendance = attendance.filter(item => isCurrentMonth(item.date));
+  const activeAttendance = attendance.filter(item => item.status !== "\u4f5c\u5e9f");
+  const monthAttendance = activeAttendance.filter(item => isCurrentMonth(item.date));
   const monthIncome = finance
     .filter(item => item.direction === "income" && item.status !== "\u4f5c\u5e9f" && isCurrentMonth(item.date))
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
@@ -551,7 +552,7 @@ function makeP0Summary(attendance, finance, communications) {
     .reduce((sum, item) => sum + Number(item.amount || 0), 0);
 
   return {
-    todayAttendanceCount: attendance.filter(item => isToday(item.date)).length,
+    todayAttendanceCount: activeAttendance.filter(item => isToday(item.date)).length,
     monthConsumedLessons: monthAttendance.reduce((sum, item) => sum + Number(item.consumedLessons || 0), 0),
     monthIncome,
     monthExpense,
@@ -779,6 +780,62 @@ function createCommunicationRecord(body, students, user) {
   student.parentReplies = Math.max(1, toNumber(student.parentReplies, 0));
   student.status = record.status === "\u5df2\u5b8c\u6210" ? "\u5df2\u8ddf\u8fdb" : "\u5f85\u8ddf\u8fdb";
   student.updatedAt = new Date().toISOString();
+
+  return { record, student };
+}
+
+function voidAttendanceRecord(record, students, user, reason = "") {
+  if (!record) return { error: "\u8bfe\u6d88\u8bb0\u5f55\u4e0d\u5b58\u5728" };
+  if (record.status === "\u4f5c\u5e9f") return { error: "\u8be5\u8bfe\u6d88\u8bb0\u5f55\u5df2\u4f5c\u5e9f" };
+
+  const student = students.find(item => item.id === Number(record.studentId));
+  if (student && Number(record.consumedLessons || 0) > 0) {
+    student.lessonsLeft = toNumber(student.lessonsLeft, 0) + Number(record.consumedLessons || 0);
+    student.daysToEnd = toNumber(student.daysToEnd, 0) + 1;
+    student.updatedAt = new Date().toISOString();
+  }
+
+  record.statusBeforeVoid = record.status;
+  record.status = "\u4f5c\u5e9f";
+  record.voidedAt = new Date().toISOString();
+  record.voidReason = String(reason || "\u4eba\u5de5\u4f5c\u5e9f").trim();
+  record.voidOperator = user?.username || "";
+  return { record, student };
+}
+
+function voidFinanceRecord(record, students, user, reason = "") {
+  if (!record) return { error: "\u8d22\u52a1\u8bb0\u5f55\u4e0d\u5b58\u5728" };
+  if (record.status === "\u4f5c\u5e9f") return { error: "\u8be5\u8d22\u52a1\u8bb0\u5f55\u5df2\u4f5c\u5e9f" };
+
+  const student = record.studentId ? students.find(item => item.id === Number(record.studentId)) : null;
+  if (student && record.direction === "income" && Number(record.lessons || 0) > 0) {
+    student.lessonsLeft = Math.max(0, toNumber(student.lessonsLeft, 0) - Number(record.lessons || 0));
+    student.prepaidLessons = Math.max(0, toNumber(student.prepaidLessons, 0) - Number(record.lessons || 0));
+    student.paidAmount = Math.max(0, toNumber(student.paidAmount, 0) - Number(record.amount || 0));
+    student.updatedAt = new Date().toISOString();
+  }
+
+  record.status = "\u4f5c\u5e9f";
+  record.voidedAt = new Date().toISOString();
+  record.voidReason = String(reason || "\u4eba\u5de5\u4f5c\u5e9f").trim();
+  record.voidOperator = user?.username || "";
+  return { record, student };
+}
+
+function completeCommunicationRecord(record, students, user) {
+  if (!record) return { error: "\u6c9f\u901a\u8bb0\u5f55\u4e0d\u5b58\u5728" };
+  if (record.status === "\u5df2\u5b8c\u6210") return { error: "\u8be5\u6c9f\u901a\u8bb0\u5f55\u5df2\u5b8c\u6210" };
+
+  const student = students.find(item => item.id === Number(record.studentId));
+  record.status = "\u5df2\u5b8c\u6210";
+  record.completedAt = new Date().toISOString();
+  record.completedBy = user?.username || "";
+
+  if (student) {
+    student.status = "\u5df2\u8ddf\u8fdb";
+    student.lastContact = "\u4eca\u5929";
+    student.updatedAt = new Date().toISOString();
+  }
 
   return { record, student };
 }
@@ -1533,6 +1590,60 @@ async function handleApi(req, res, url) {
     sendJson(res, 201, {
       record: result.record,
       student: enrichStudent(result.student),
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      businessSummary: makeSummary(students),
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
+
+  const attendanceVoidMatch = url.pathname.match(/^\/api\/p0\/attendance\/(\d+)\/void$/);
+  if (req.method === "POST" && attendanceVoidMatch) {
+    const body = await readBody(req);
+    const record = attendanceRecords.find(item => item.id === Number(attendanceVoidMatch[1]));
+    const result = voidAttendanceRecord(record, students, user, body.reason);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    await writeAttendanceRecords(attendanceRecords);
+    if (result.student) await writeStudents(students);
+    sendJson(res, 200, {
+      record: result.record,
+      student: result.student ? enrichStudent(result.student) : null,
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      businessSummary: makeSummary(students),
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
+
+  const financeVoidMatch = url.pathname.match(/^\/api\/p0\/finance\/(\d+)\/void$/);
+  if (req.method === "POST" && financeVoidMatch) {
+    const body = await readBody(req);
+    const record = financeRecords.find(item => item.id === Number(financeVoidMatch[1]));
+    const result = voidFinanceRecord(record, students, user, body.reason);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    await writeFinanceRecords(financeRecords);
+    if (result.student) await writeStudents(students);
+    sendJson(res, 200, {
+      record: result.record,
+      student: result.student ? enrichStudent(result.student) : null,
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      businessSummary: makeSummary(students),
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
+
+  const communicationCompleteMatch = url.pathname.match(/^\/api\/p0\/communications\/(\d+)\/complete$/);
+  if (req.method === "POST" && communicationCompleteMatch) {
+    await readBody(req);
+    const record = communicationRecords.find(item => item.id === Number(communicationCompleteMatch[1]));
+    const result = completeCommunicationRecord(record, students, user);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    await writeCommunicationRecords(communicationRecords);
+    if (result.student) await writeStudents(students);
+    sendJson(res, 200, {
+      record: result.record,
+      student: result.student ? enrichStudent(result.student) : null,
       students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
       businessSummary: makeSummary(students),
       summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)

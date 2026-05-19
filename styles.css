@@ -563,6 +563,76 @@ h3 {
 }
 
 .p0-record-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.p0-record-list article > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.p0-record-list button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.p0-record-list em {
+  color: var(--red);
+  font-style: normal;
+  font-size: 12px;
+}
+
+.p0-record-list small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.student-ledger-section {
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.student-ledger-section .section-title {
+  margin-bottom: 12px;
+}
+
+.student-ledger-section .section-title small {
+  color: var(--muted);
+}
+
+.student-ledger-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.student-ledger-grid h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.student-ledger-list {
+  display: grid;
+  gap: 8px;
+}
+
+.student-ledger-list article {
   display: grid;
   gap: 4px;
   padding: 10px 12px;
@@ -571,7 +641,12 @@ h3 {
   background: #fbfcfd;
 }
 
-.p0-record-list small {
+.student-ledger-list article.voided {
+  opacity: .62;
+  background: #f7f7f7;
+}
+
+.student-ledger-list small {
   color: var(--muted);
   line-height: 1.45;
 }
@@ -1148,6 +1223,7 @@ li {
   .p0-dashboard,
   .p0-workflow,
   .p0-record-columns,
+  .student-ledger-grid,
   .workspace,
   .schedule-grid,
   .student-form,
