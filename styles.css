@@ -964,6 +964,11 @@ textarea:focus {
   font-size: 13px;
 }
 
+.student-meta.debt-meta {
+  color: var(--red);
+  font-weight: 700;
+}
+
 .risk-pill,
 .risk-badge {
   display: inline-flex;
@@ -1013,6 +1018,14 @@ textarea:focus {
   margin-bottom: 4px;
   font-size: 24px;
   font-weight: 800;
+}
+
+.metric span .metric-debt {
+  display: block;
+  margin-top: 4px;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .metric small {

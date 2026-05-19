@@ -219,6 +219,8 @@ function studentKnowledgeFromStudent(student) {
     course: student.course || "",
     paidAt: student.paidAt || "",
     paidAmount: Number(student.paidAmount ?? student.renewalValue ?? 0),
+    paymentStatus: student.paymentStatus || "\u5df2\u7f34\u6e05",
+    debtAmount: Number(student.debtAmount ?? 0),
     prepaidLessons: Number(student.prepaidLessons ?? student.lessonsLeft ?? 0),
     lessonsLeft: Number(student.lessonsLeft ?? student.prepaidLessons ?? 0),
     daysToEnd: Number(student.daysToEnd ?? 30),
@@ -331,6 +333,7 @@ function getRiskScore(student) {
   if (student.absentRate >= 25) score += 20;
   if (student.parentReplies <= 1) score += 16;
   if (student.homeworkMissed >= 2) score += 12;
+  if (Number(student.debtAmount || 0) > 0 || student.paymentStatus === "\u6b20\u8d39") score += 18;
   if (student.lastContact.includes("18") || student.lastContact.includes("21")) score += 8;
   return Math.min(score, 99);
 }
@@ -348,6 +351,7 @@ function getReasons(student) {
   if (student.absentRate >= 25) reasons.push(`\u8fd1\u6708\u7f3a\u52e4\u7387 ${student.absentRate}%\uff0c\u9700\u5173\u6ce8\u5b66\u4e60\u7a33\u5b9a\u6027\u3002`);
   if (student.parentReplies <= 1) reasons.push("\u5bb6\u957f\u8fd1\u671f\u4e92\u52a8\u504f\u5c11\uff0c\u5efa\u8bae\u8865\u5145\u6210\u957f\u8bc1\u636e\u540e\u56de\u8bbf\u3002");
   if (student.homeworkMissed >= 2) reasons.push(`\u4f5c\u4e1a\u7f3a\u4ea4 ${student.homeworkMissed} \u6b21\uff0c\u53ef\u80fd\u5f71\u54cd\u5bb6\u957f\u5bf9\u6548\u679c\u7684\u611f\u77e5\u3002`);
+  if (Number(student.debtAmount || 0) > 0 || student.paymentStatus === "\u6b20\u8d39") reasons.push(`\u5f53\u524d\u7f34\u8d39\u72b6\u6001\u4e3a ${student.paymentStatus || "\u6b20\u8d39"}\uff0c\u5f85\u6536\u91d1\u989d ${Number(student.debtAmount || 0)} \u5143\uff0c\u9700\u8981\u5728\u8bfe\u6d88\u524d\u540e\u540c\u6b65\u8ddf\u8fdb\u6536\u6b3e\u3002`);
   if (!reasons.length) reasons.push("\u5f53\u524d\u7eed\u8d39\u98ce\u9669\u8f83\u4f4e\uff0c\u4fdd\u6301\u5e38\u89c4\u5b66\u60c5\u7ef4\u62a4\u3002");
   return reasons;
 }
@@ -458,6 +462,8 @@ function buildStudentAiContext(student, tone) {
       parentReplies: enriched.parentReplies,
       homeworkMissed: enriched.homeworkMissed,
       renewalValue: enriched.renewalValue,
+      paymentStatus: enriched.paymentStatus,
+      debtAmount: enriched.debtAmount,
       lastContact: enriched.lastContact,
       status: enriched.status,
       riskScore: enriched.riskScore,
@@ -494,6 +500,8 @@ async function makeSmartMessage(student, tone = "warm") {
     parent_replies: context.student.parentReplies,
     homework_missed: context.student.homeworkMissed,
     renewal_value: context.student.renewalValue,
+    payment_status: context.student.paymentStatus,
+    debt_amount: context.student.debtAmount,
     last_contact: context.student.lastContact,
     risk_score: context.student.riskScore,
     risk_level: context.student.riskLevel,
@@ -530,6 +538,8 @@ async function makeSmartLessonFeedback(record, student) {
     attendance_status: record.status,
     consumed_lessons: record.consumedLessons,
     remaining_lessons: student.lessonsLeft,
+    payment_status: student.paymentStatus,
+    debt_amount: student.debtAmount,
     teacher_note: record.note || "",
     scenario: "\u8bfe\u540e\u5bb6\u957f\u53cd\u9988",
     output_format: "\u5fae\u4fe1\u5bb6\u957f\u7248\u53cd\u9988+\u6210\u957f\u8bc1\u636e+\u4e0b\u6b21\u5efa\u8bae",
@@ -575,6 +585,8 @@ async function makeSmartRiskAssessment(student, records) {
     course: student.course,
     teacher: student.teacher,
     remaining_lessons: student.lessonsLeft,
+    payment_status: student.paymentStatus,
+    debt_amount: student.debtAmount,
     expected_days: student.daysToEnd,
     absence_rate: student.absentRate,
     parent_replies: student.parentReplies,
@@ -745,6 +757,9 @@ async function createStudent(body, students) {
   student.teacher = String(body.teacher || student.teacher || "\u5f85\u5206\u914d\u8001\u5e08").trim();
   student.paidAt = String(body.paidAt || student.paidAt || "").trim();
   student.paidAmount = toNumber(body.paidAmount, toNumber(student.paidAmount, 0));
+  student.paymentStatus = ["\u5df2\u7f34\u6e05", "\u90e8\u5206\u7f34\u8d39", "\u6b20\u8d39"].includes(body.paymentStatus) ? body.paymentStatus : (student.paymentStatus || "\u5df2\u7f34\u6e05");
+  student.debtAmount = toNumber(body.debtAmount, toNumber(student.debtAmount, 0));
+  if (student.debtAmount > 0 && student.paymentStatus === "\u5df2\u7f34\u6e05") student.paymentStatus = "\u6b20\u8d39";
   student.prepaidLessons = toNumber(body.prepaidLessons, toNumber(student.prepaidLessons, toNumber(student.lessonsLeft, 0)));
   student.lessonsLeft = toNumber(body.lessonsLeft, student.prepaidLessons);
   student.daysToEnd = toNumber(body.daysToEnd, toNumber(student.daysToEnd, 30));
@@ -831,6 +846,8 @@ function createFinanceRecord(body, students, user) {
     student.lessonsLeft = afterLessons;
     student.prepaidLessons = toNumber(student.prepaidLessons, 0) + lessons;
     student.paidAmount = toNumber(student.paidAmount, 0) + amount;
+    student.debtAmount = Math.max(0, toNumber(student.debtAmount, 0) - amount);
+    student.paymentStatus = student.debtAmount > 0 ? "\u90e8\u5206\u7f34\u8d39" : "\u5df2\u7f34\u6e05";
     student.renewalValue = amount;
     student.paidAt = record.date;
     student.status = record.category === "\u7eed\u8d39" ? "\u5df2\u7eed\u8d39" : student.status;
@@ -2247,6 +2264,8 @@ async function handleApi(req, res, url) {
       student.status = "\u5df2\u7eed\u8d39";
       student.lessonsLeft = 24;
       student.daysToEnd = 80;
+      student.paymentStatus = "\u5df2\u7f34\u6e05";
+      student.debtAmount = 0;
       student.lastContact = "\u4eca\u5929";
     }
 

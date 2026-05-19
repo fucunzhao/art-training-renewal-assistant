@@ -112,6 +112,12 @@ function studentNameById(id) {
   return state.students.find(student => String(student.id) === String(id))?.name || "未关联学员";
 }
 
+function paymentText(student) {
+  const debt = Number(student.debtAmount || 0);
+  if (debt > 0) return `${student.paymentStatus || "欠费"} ${currency.format(debt)}`;
+  return student.paymentStatus || "已缴清";
+}
+
 function renderP0Options() {
   const studentOptions = state.students.map(student => `<option value="${student.id}">${student.name} · 剩余 ${student.lessonsLeft} 课时</option>`).join("");
   ["p0AttendanceStudent", "p0FinanceStudent", "p0CommunicationStudent"].forEach(id => {
@@ -623,6 +629,7 @@ function renderList() {
       <div class="student-card-top"><strong>${student.name}</strong><span class="risk-pill ${student.riskLevel.className}">${student.riskLevel.text}</span></div>
       <div class="student-meta">${student.course} · ${student.teacher}</div>
       <div class="student-meta">剩 ${student.lessonsLeft} 节 · ${student.lastContact}联系 · ${student.status}</div>
+      <div class="student-meta ${Number(student.debtAmount || 0) > 0 ? "debt-meta" : ""}">${paymentText(student)}</div>
     `;
     button.addEventListener("click", () => { state.selectedId = student.id; render(); });
     container.appendChild(button);
@@ -651,6 +658,7 @@ function renderDetail() {
   document.getElementById("lessonsLeft").textContent = student.lessonsLeft;
   document.getElementById("daysToEnd").textContent = student.daysToEnd;
   document.getElementById("renewalValue").textContent = currency.format(student.renewalValue);
+  document.getElementById("renewalValue").insertAdjacentHTML("beforeend", Number(student.debtAmount || 0) > 0 ? `<small class="metric-debt">欠 ${currency.format(student.debtAmount)}</small>` : "");
   document.getElementById("nextAction").textContent = student.nextAction;
   document.getElementById("riskReasons").innerHTML = student.riskReasons.map(reason => `<li>${reason}</li>`).join("");
   resetAiRiskSection();
@@ -672,7 +680,7 @@ async function copyText(text, label) {
 function fillStudentForm(record) {
   const form = document.getElementById("studentForm");
   if (!record || !form) return;
-  const fields = ["age", "teacher", "course", "paidAt", "paidAmount", "prepaidLessons", "lessonsLeft", "daysToEnd", "absentRate", "parentReplies", "homeworkMissed", "lastContact"];
+  const fields = ["age", "teacher", "course", "paidAt", "paidAmount", "paymentStatus", "debtAmount", "prepaidLessons", "lessonsLeft", "daysToEnd", "absentRate", "parentReplies", "homeworkMissed", "lastContact"];
   fields.forEach(name => {
     if (form[name] && record[name] !== undefined && record[name] !== null && record[name] !== "") form[name].value = record[name];
   });
@@ -730,6 +738,8 @@ async function createStudent(form) {
   render();
   form.reset();
   form.paidAmount.value = 3980;
+  form.paymentStatus.value = "已缴清";
+  form.debtAmount.value = 0;
   form.prepaidLessons.value = 24;
   form.lessonsLeft.value = 24;
   form.daysToEnd.value = 60;
