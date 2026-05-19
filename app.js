@@ -203,6 +203,22 @@ function ensureStudentLedgerSection() {
   growthSection.insertAdjacentElement("afterend", section);
 }
 
+function ensureAiRiskSection() {
+  if (document.getElementById("aiRiskBox")) return;
+  const insightBand = document.querySelector(".insight-band");
+  if (!insightBand) return;
+  const section = document.createElement("div");
+  section.className = "ai-risk-section";
+  section.innerHTML = `
+    <div class="section-title">
+      <h3>AI 风险评估</h3>
+      <button id="generateRiskButton" type="button">生成 AI 评估</button>
+    </div>
+    <div id="aiRiskBox" class="ai-risk-box">结合课消、财务、沟通记录生成续费风险建议。</div>
+  `;
+  insightBand.insertAdjacentElement("afterend", section);
+}
+
 function renderLedgerList(id, records, emptyText, renderItem) {
   const container = document.getElementById(id);
   if (!container) return;
@@ -239,6 +255,12 @@ function renderStudentLedger(student) {
       <small>${item.channel} · ${item.status}${item.nextFollowUp ? ` · 下次 ${item.nextFollowUp}` : ""}</small>
     </article>
   `);
+}
+
+function resetAiRiskSection() {
+  ensureAiRiskSection();
+  const box = document.getElementById("aiRiskBox");
+  if (box) box.textContent = "结合课消、财务、沟通记录生成续费风险建议。";
 }
 
 function renderP0Records(summary = null) {
@@ -300,6 +322,29 @@ async function applyP0Mutation(path, successText) {
   }
   render();
   showToast(successText);
+}
+
+async function generateAiRiskAssessment() {
+  const student = selectedStudent();
+  if (!student) return;
+  ensureAiRiskSection();
+  const box = document.getElementById("aiRiskBox");
+  const button = document.getElementById("generateRiskButton");
+  if (box) box.textContent = "正在生成 AI 风险评估...";
+  if (button) button.disabled = true;
+  try {
+    const data = await api(`/api/students/${student.id}/risk`, { method: "POST", body: JSON.stringify({}) });
+    if (box) {
+      box.textContent = data.text || "未生成风险评估";
+      box.dataset.source = data.source || "template";
+    }
+    showToast(data.source === "hermes" ? "Hermes 风险评估已生成" : "已使用本地规则生成风险评估");
+  } catch (error) {
+    if (box) box.textContent = error.message;
+    showToast(error.message);
+  } finally {
+    if (button) button.disabled = false;
+  }
 }
 
 function filteredStudents() {
@@ -608,6 +653,7 @@ function renderDetail() {
   document.getElementById("renewalValue").textContent = currency.format(student.renewalValue);
   document.getElementById("nextAction").textContent = student.nextAction;
   document.getElementById("riskReasons").innerHTML = student.riskReasons.map(reason => `<li>${reason}</li>`).join("");
+  resetAiRiskSection();
   document.getElementById("growthTimeline").innerHTML = student.proof.map(item => `<article class="proof-card"><strong>${item[0]}</strong><p>${item[1]}</p></article>`).join("");
   renderStudentLedger(student);
   renderMessage(student).catch(error => showToast(error.message));
@@ -997,6 +1043,9 @@ function bindEvents() {
   document.getElementById("copyProofButton").addEventListener("click", () => { const student = selectedStudent(); if (!student) return; const proof = student.proof.map(item => `${item[0]}：${item[1]}`).join("\n"); copyText(`${student.name}成长证据\n${proof}`, "成长证据"); });
   document.getElementById("markContactedButton").addEventListener("click", () => updateStatus("已跟进"));
   document.getElementById("markRenewedButton").addEventListener("click", () => updateStatus("已续费"));
+  document.querySelector(".detail-panel").addEventListener("click", event => {
+    if (event.target.closest("#generateRiskButton")) generateAiRiskAssessment();
+  });
   document.getElementById("studentForm").addEventListener("submit", event => { event.preventDefault(); createStudent(event.currentTarget).catch(error => showToast(error.message)); });
   document.getElementById("studentNameInput").addEventListener("input", event => { clearTimeout(state.lookupTimer); state.lookupTimer = setTimeout(() => lookupStudentByName(event.target.value).catch(error => showToast(error.message)), 350); });
   document.getElementById("resetStudentForm").addEventListener("click", () => document.getElementById("studentForm").reset());

@@ -688,6 +688,43 @@ h3 {
   line-height: 1.45;
 }
 
+.ai-risk-section {
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ai-risk-section .section-title {
+  margin-bottom: 12px;
+}
+
+.ai-risk-section button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.ai-risk-section button:disabled {
+  cursor: wait;
+  opacity: .6;
+}
+
+.ai-risk-box {
+  min-height: 74px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: var(--ink);
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
 .ai-actions {
   display: flex;
   flex-wrap: wrap;

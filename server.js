@@ -540,6 +540,57 @@ async function makeSmartLessonFeedback(record, student) {
   return text ? { text, source: "hermes" } : { text: fallback, source: "template" };
 }
 
+function makeRiskAssessmentTemplate(student, records) {
+  const recentAttendance = records.attendance.filter(item => item.status !== "\u4f5c\u5e9f").slice(0, 5);
+  const recentCommunications = records.communications.slice(0, 5);
+  const paidTotal = records.finance
+    .filter(item => item.status !== "\u4f5c\u5e9f" && item.direction === "income")
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const absenceCount = recentAttendance.filter(item => ["\u8bf7\u5047", "\u65f7\u8bfe"].includes(item.status)).length;
+  const riskScore = getRiskScore(student);
+  const riskLevel = getRiskLevel(riskScore).text;
+  const reasons = getReasons(student).join("\n");
+
+  return `AI 风险评估暂由本地规则生成：
+
+风险等级：${riskLevel}
+风险分：${riskScore}
+
+关键因素：
+${reasons}
+- 近期课消记录 ${recentAttendance.length} 条，其中请假/旷课 ${absenceCount} 条。
+- 已记录收入合计 ${paidTotal} 元。
+- 最近沟通记录 ${recentCommunications.length} 条。
+
+建议动作：
+${getNextAction(student, riskScore)}
+
+下一步建议先补充一条课堂反馈或成长证据，再进行家长续费沟通。`;
+}
+
+async function makeSmartRiskAssessment(student, records) {
+  const fallback = makeRiskAssessmentTemplate(student, records);
+  const payload = await postHermes("/api/v1/risk", {
+    student_name: student.name,
+    course: student.course,
+    teacher: student.teacher,
+    remaining_lessons: student.lessonsLeft,
+    expected_days: student.daysToEnd,
+    absence_rate: student.absentRate,
+    parent_replies: student.parentReplies,
+    homework_missed: student.homeworkMissed,
+    last_contact: student.lastContact,
+    system_risk_score: getRiskScore(student),
+    attendance_records: records.attendance.slice(0, 10),
+    finance_records: records.finance.slice(0, 10),
+    communication_records: records.communications.slice(0, 10),
+    model: HERMES_MODEL || undefined,
+    source_of_truth: "\u4e1a\u52a1\u4e8b\u5b9e\u4ee5 Zeabur \u7cfb\u7edf\u4f20\u5165\u7684\u8bfe\u6d88\u3001\u8d22\u52a1\u3001\u6c9f\u901a\u548c\u5b66\u5458\u6570\u636e\u4e3a\u51c6\uff0cHermes \u53ea\u751f\u6210\u98ce\u9669\u5efa\u8bae\u3002"
+  });
+  const text = extractAiText(payload);
+  return text ? { text, source: "hermes" } : { text: fallback, source: "template" };
+}
+
 function makeSummary(students) {
   const enriched = students.map(enrichStudent);
   const highRisk = enriched.filter(student => student.riskScore >= 72);
@@ -2157,11 +2208,27 @@ async function handleApi(req, res, url) {
 
   const studentMatch = url.pathname.match(/^\/api\/students\/(\d+)$/);
   const messageMatch = url.pathname.match(/^\/api\/students\/(\d+)\/message$/);
+  const riskMatch = url.pathname.match(/^\/api\/students\/(\d+)\/risk$/);
 
   if (req.method === "GET" && messageMatch) {
     const student = students.find(item => item.id === Number(messageMatch[1]));
     if (!student) return sendJson(res, 404, { error: "Student not found" });
     const result = await makeSmartMessage(student, url.searchParams.get("tone") || "warm");
+    sendJson(res, 200, result);
+    return;
+  }
+
+  if (req.method === "POST" && riskMatch) {
+    await readBody(req);
+    const student = students.find(item => item.id === Number(riskMatch[1]));
+    if (!student) return sendJson(res, 404, { error: "Student not found" });
+    const studentId = Number(student.id);
+    const records = {
+      attendance: attendanceRecords.filter(item => Number(item.studentId) === studentId),
+      finance: financeRecords.filter(item => Number(item.studentId) === studentId),
+      communications: communicationRecords.filter(item => Number(item.studentId) === studentId)
+    };
+    const result = await makeSmartRiskAssessment(student, records);
     sendJson(res, 200, result);
     return;
   }
