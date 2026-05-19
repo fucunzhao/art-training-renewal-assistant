@@ -313,6 +313,32 @@ h3 {
   gap: 10px;
 }
 
+.quick-lesson-form {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.quick-lesson-form select[multiple] {
+  grid-row: span 2;
+  min-height: 94px;
+  padding: 8px;
+}
+
+.quick-force {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.quick-force input {
+  width: 18px;
+  height: 18px;
+}
+
 .candidate-warning {
   color: var(--red);
 }

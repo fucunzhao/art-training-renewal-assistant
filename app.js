@@ -254,6 +254,25 @@ function initP0Forms() {
   });
 }
 
+function initQuickLessonDefaults() {
+  const form = document.getElementById("quickLessonForm");
+  if (form?.date && !form.date.value) form.date.value = todayValue();
+}
+
+function applyQuickClassSelection() {
+  if (!state.scheduleMeta) return;
+  const classId = Number(document.getElementById("quickLessonClass").value);
+  const classItem = state.scheduleMeta.classes.find(item => Number(item.id) === classId);
+  if (!classItem) return;
+
+  document.getElementById("quickLessonCourse").value = classItem.courseTypeId;
+  document.getElementById("quickLessonTeacher").value = classItem.teacherId;
+  const studentSelect = document.getElementById("quickLessonStudents");
+  [...studentSelect.options].forEach(option => {
+    option.selected = (classItem.studentIds || []).map(Number).includes(Number(option.value));
+  });
+}
+
 async function createP0Record(collection, payload) {
   const endpoint = {
     attendance: "/api/p0/attendance",
@@ -406,6 +425,12 @@ function renderScheduleOptions() {
   document.getElementById("availabilityStudent").innerHTML = studentOptions;
   document.getElementById("teacherCourseTypes").innerHTML = courseOptions;
   document.getElementById("recommendClass").innerHTML = state.scheduleMeta.classes.map(item => `<option value="${item.id}">${item.name} · ${item.courseName}</option>`).join("");
+  document.getElementById("quickLessonClass").innerHTML = `<option value="">不选择班级</option>${state.scheduleMeta.classes.map(item => `<option value="${item.id}">${item.name} · ${item.courseName}</option>`).join("")}`;
+  document.getElementById("quickLessonCourse").innerHTML = courseOptions;
+  document.getElementById("quickLessonTeacher").innerHTML = teacherOptions;
+  document.getElementById("quickLessonRoom").innerHTML = state.scheduleMeta.rooms.map(room => `<option value="${room.id}">${room.name} · ${room.capacity || "-"}人</option>`).join("");
+  document.getElementById("quickLessonStudents").innerHTML = studentOptions;
+  initQuickLessonDefaults();
 
   renderCourseTypes();
   renderTeachers();
@@ -836,6 +861,33 @@ async function generateLesson(recommendationId) {
   showToast("\u8bfe\u8868\u5df2\u751f\u6210");
 }
 
+function quickLessonPayload(form) {
+  const body = Object.fromEntries(new FormData(form).entries());
+  const date = body.date || todayValue();
+  body.startTime = new Date(`${date}T${body.startTime || "10:00"}:00`).toISOString();
+  body.endTime = body.endTime ? new Date(`${date}T${body.endTime}:00`).toISOString() : "";
+  body.studentIds = [...form.studentIds.selectedOptions].map(option => Number(option.value));
+  body.force = Boolean(form.force?.checked);
+  return body;
+}
+
+async function createQuickLesson(form) {
+  const body = quickLessonPayload(form);
+  if (!body.studentIds.length) return showToast("请至少选择一位学员");
+  try {
+    const data = await api("/api/schedule/lessons", { method: "POST", body: JSON.stringify(body) });
+    state.lessons = [...state.lessons, data.lesson].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    await Promise.all([loadScheduleMeta(), loadLessons()]);
+    showToast("快速课表已生成");
+  } catch (error) {
+    if (String(error.message || "").includes("冲突")) {
+      showToast("存在排课冲突，可勾选“有冲突也保存”后重试");
+      return;
+    }
+    showToast(error.message);
+  }
+}
+
 async function completeLesson(id) {
   const data = await api(`/api/schedule/lessons/${id}/complete`, { method: "POST" });
   state.lessons = state.lessons.map(lesson => lesson.id === data.lesson.id ? data.lesson : lesson);
@@ -926,6 +978,9 @@ function bindEvents() {
   document.getElementById("classList").addEventListener("click", event => { const button = event.target.closest("[data-delete-class]"); if (button) deleteClass(button.dataset.deleteClass).catch(error => showToast(error.message)); });
   document.getElementById("teacherAvailabilityForm").addEventListener("submit", event => { event.preventDefault(); createTeacherAvailability(event.currentTarget).catch(error => showToast(error.message)); });
   document.getElementById("studentAvailabilityForm").addEventListener("submit", event => { event.preventDefault(); createStudentAvailability(event.currentTarget).catch(error => showToast(error.message)); });
+  document.getElementById("quickLessonClass").addEventListener("change", applyQuickClassSelection);
+  document.getElementById("quickFillClassButton").addEventListener("click", applyQuickClassSelection);
+  document.getElementById("quickLessonForm").addEventListener("submit", event => { event.preventDefault(); createQuickLesson(event.currentTarget); });
   document.getElementById("recommendScheduleButton").addEventListener("click", () => recommendSchedule().catch(error => showToast(error.message)));
   document.getElementById("recommendationList").addEventListener("click", event => { const button = event.target.closest("[data-generate-lesson]"); if (button) generateLesson(button.dataset.generateLesson).catch(error => showToast(error.message)); });
   document.getElementById("lessonList").addEventListener("click", event => { const button = event.target.closest("[data-complete-lesson]"); if (button) completeLesson(button.dataset.completeLesson).catch(error => showToast(error.message)); });
@@ -956,6 +1011,7 @@ function render() {
 
 bindEvents();
 initP0Forms();
+initQuickLessonDefaults();
 renderTeacherCalendar();
 Promise.all([loadSession(), loadStudents(), loadNotifications(), loadScheduleMeta(), loadLessons(), loadP0Data()]).catch(() => showToast("请先登录"));
 scanKnowledgeFiles().catch(() => {});

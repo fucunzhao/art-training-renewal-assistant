@@ -295,6 +295,21 @@
             </section>
           </div>
           <section class="schedule-card schedule-recommend">
+            <div class="section-title entry-title"><div><p class="eyebrow">快速排课</p><h2>直接创建单次课表</h2></div><button id="quickFillClassButton" type="button">按班级带入</button></div>
+            <form id="quickLessonForm" class="mini-form quick-lesson-form">
+              <select name="classId" id="quickLessonClass"><option value="">不选择班级</option></select>
+              <select name="courseId" id="quickLessonCourse"></select>
+              <select name="teacherId" id="quickLessonTeacher"></select>
+              <select name="roomId" id="quickLessonRoom"></select>
+              <select name="studentIds" id="quickLessonStudents" multiple></select>
+              <input name="date" type="date" required>
+              <input name="startTime" type="time" value="10:00" required>
+              <input name="endTime" type="time" value="">
+              <label class="quick-force"><input name="force" type="checkbox"> 有冲突也保存</label>
+              <button class="primary" type="submit">一键生成课表</button>
+            </form>
+          </section>
+          <section class="schedule-card schedule-recommend">
             <div class="section-title entry-title"><div><p class="eyebrow">5. 推荐排课</p><h2>选择班级生成推荐时间</h2></div><button id="refreshScheduleButton" type="button">刷新排课数据</button></div>
             <div class="recommend-controls"><select id="recommendClass"></select><button id="recommendScheduleButton" class="primary" type="button">生成推荐排课</button></div>
             <div id="recommendationList" class="recommendation-list"></div>

@@ -902,6 +902,7 @@ function createLesson(body, schedule) {
 
   const lesson = {
     id: nextId(schedule.lessons),
+    classId: body.classId ? Number(body.classId) : null,
     courseId: Number(body.courseId),
     teacherId: Number(body.teacherId),
     roomId: Number(body.roomId),
