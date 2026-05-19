@@ -5,6 +5,7 @@ const state = {
   scheduleMeta: null,
   lessons: [],
   recommendations: [],
+  p0Records: loadP0Records(),
   selectedTeacherDates: new Set(),
   lookupTimer: null,
   selectedId: null,
@@ -12,6 +13,10 @@ const state = {
   tone: "warm",
   query: ""
 };
+
+function loadP0Records() {
+  return { attendance: [], finance: [], communications: [] };
+}
 
 const currency = new Intl.NumberFormat("zh-CN", {
   style: "currency",
@@ -43,6 +48,8 @@ async function loadStudents() {
   state.students = data.students || [];
   if (!state.selectedId && state.students[0]) state.selectedId = state.students[0].id;
   renderSummary(data.summary || {});
+  renderP0Options();
+  renderP0Records();
   render();
 }
 
@@ -64,6 +71,16 @@ async function loadLessons() {
   renderLessons();
 }
 
+async function loadP0Data() {
+  const data = await api("/api/p0");
+  state.p0Records = {
+    attendance: data.attendance || [],
+    finance: data.finance || [],
+    communications: data.communications || []
+  };
+  renderP0Records(data.summary || null);
+}
+
 function showToast(text) {
   const toast = document.getElementById("toast");
   toast.textContent = text;
@@ -75,6 +92,122 @@ function renderSummary(summary) {
   document.getElementById("summaryRisk").textContent = summary.highRiskCount || 0;
   document.getElementById("summaryDue").textContent = summary.dueSoonCount || 0;
   document.getElementById("summaryValue").textContent = currency.format(summary.protectedRevenue || 0);
+}
+
+function todayValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isSameMonth(dateText) {
+  const now = new Date();
+  const date = new Date(`${dateText}T00:00:00`);
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function isToday(dateText) {
+  return dateText === todayValue();
+}
+
+function studentNameById(id) {
+  return state.students.find(student => String(student.id) === String(id))?.name || "未关联学员";
+}
+
+function renderP0Options() {
+  const studentOptions = state.students.map(student => `<option value="${student.id}">${student.name} · 剩余 ${student.lessonsLeft} 课时</option>`).join("");
+  ["p0AttendanceStudent", "p0FinanceStudent", "p0CommunicationStudent"].forEach(id => {
+    const select = document.getElementById(id);
+    if (select) select.innerHTML = id === "p0FinanceStudent" ? `<option value="">不关联学员</option>${studentOptions}` : studentOptions;
+  });
+}
+
+function renderP0Dashboard(summary = null) {
+  if (summary) {
+    const values = {
+      p0TodayAttendance: summary.todayAttendanceCount || 0,
+      p0MonthLessons: summary.monthConsumedLessons || 0,
+      p0MonthIncome: currency.format(summary.monthIncome || 0),
+      p0MonthProfit: currency.format(summary.monthProfit || 0),
+      p0FollowUps: summary.pendingFollowUps || 0
+    };
+    Object.entries(values).forEach(([id, value]) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = value;
+    });
+    return;
+  }
+
+  const attendance = state.p0Records.attendance;
+  const finance = state.p0Records.finance;
+  const communications = state.p0Records.communications;
+  const monthAttendance = attendance.filter(item => isSameMonth(item.date));
+  const monthIncome = finance.filter(item => item.direction === "income" && isSameMonth(item.date)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const monthExpense = finance.filter(item => item.direction === "expense" && isSameMonth(item.date)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const followUps = communications.filter(item => item.status === "待跟进").length;
+
+  const values = {
+    p0TodayAttendance: attendance.filter(item => isToday(item.date)).length,
+    p0MonthLessons: monthAttendance.reduce((sum, item) => sum + Number(item.consumedLessons ?? item.lessons ?? 0), 0),
+    p0MonthIncome: currency.format(monthIncome),
+    p0MonthProfit: currency.format(monthIncome - monthExpense),
+    p0FollowUps: followUps
+  };
+
+  Object.entries(values).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  });
+}
+
+function recordSnippet(item, type) {
+  if (type === "attendance") {
+    return `<strong>${item.date} · ${item.studentName || studentNameById(item.studentId)}</strong><small>${item.status} · 扣 ${item.consumedLessons ?? item.lessons ?? 0} 课时 · ${item.course || "未填课程"}</small>`;
+  }
+  if (type === "finance") {
+    const prefix = item.direction === "income" ? "收入" : "支出";
+    return `<strong>${item.date} · ${prefix} ${currency.format(Number(item.amount || 0))}</strong><small>${item.category} · ${item.studentName || studentNameById(item.studentId)} · ${item.paymentMethod || "未填方式"}</small>`;
+  }
+  return `<strong>${item.date} · ${item.studentName || studentNameById(item.studentId)}</strong><small>${item.scenario} · ${item.channel} · ${item.status}</small>`;
+}
+
+function renderP0RecordList(id, records, type) {
+  const container = document.getElementById(id);
+  if (!container) return;
+  if (!records.length) {
+    container.innerHTML = "<p class=\"empty-state\">暂无记录</p>";
+    return;
+  }
+  container.innerHTML = records.slice(0, 6).map(item => `<article>${recordSnippet(item, type)}</article>`).join("");
+}
+
+function renderP0Records(summary = null) {
+  renderP0Dashboard(summary);
+  renderP0RecordList("p0AttendanceList", state.p0Records.attendance, "attendance");
+  renderP0RecordList("p0FinanceList", state.p0Records.finance, "finance");
+  renderP0RecordList("p0CommunicationList", state.p0Records.communications, "communication");
+}
+
+function initP0Forms() {
+  ["p0AttendanceForm", "p0FinanceForm", "p0CommunicationForm"].forEach(id => {
+    const form = document.getElementById(id);
+    if (form?.date && !form.date.value) form.date.value = todayValue();
+  });
+}
+
+async function createP0Record(collection, payload) {
+  const endpoint = {
+    attendance: "/api/p0/attendance",
+    finance: "/api/p0/finance",
+    communications: "/api/p0/communications"
+  }[collection];
+  const data = await api(endpoint, { method: "POST", body: JSON.stringify(payload) });
+  await loadP0Data();
+  if (data.students) {
+    state.students = data.students;
+    if (data.businessSummary) renderSummary(data.businessSummary);
+    renderP0Options();
+    render();
+  }
+  return data;
 }
 
 function filteredStudents() {
@@ -636,6 +769,7 @@ async function completeLesson(id) {
   state.students = data.students;
   renderLessons();
   renderSummary(data.summary);
+  await loadP0Data();
   render();
   showToast(`\u5df2\u5b8c\u6210\u8bfe\u6d88\uff1a${data.consumed.length} \u4f4d\u5b66\u5458\u6263\u8bfe`);
 }
@@ -654,6 +788,42 @@ function bindEvents() {
   document.getElementById("triggerRiskNotificationsButton").addEventListener("click", () => triggerRiskNotifications().catch(error => showToast(error.message)));
   document.getElementById("markAllNotificationsButton").addEventListener("click", () => markAllNotificationsRead().catch(error => showToast(error.message)));
   document.getElementById("notificationList").addEventListener("click", event => { const button = event.target.closest("[data-read-notification]"); if (button) markNotificationRead(button.dataset.readNotification).catch(error => showToast(error.message)); });
+
+  document.getElementById("p0AttendanceForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const body = Object.fromEntries(new FormData(form).entries());
+    createP0Record("attendance", body).then(() => {
+      form.note.value = "";
+      showToast("课消考勤已保存，学员课时已同步更新");
+    }).catch(error => showToast(error.message));
+  });
+  document.getElementById("p0FinanceForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const body = Object.fromEntries(new FormData(form).entries());
+    createP0Record("finance", body)
+      .then(() => showToast("财务流水已保存"))
+      .catch(error => showToast(error.message));
+  });
+  document.getElementById("p0CommunicationForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const body = Object.fromEntries(new FormData(form).entries());
+    createP0Record("communications", body).then(() => {
+      form.content.value = "";
+      showToast("家校沟通已保存");
+    }).catch(error => showToast(error.message));
+  });
+  document.getElementById("p0UseMessageButton").addEventListener("click", () => {
+    const message = document.getElementById("messageBox").value.trim();
+    if (!message) return showToast("请先在学员详情中生成话术");
+    const student = selectedStudent();
+    if (student) document.getElementById("p0CommunicationStudent").value = student.id;
+    document.getElementById("p0CommunicationContent").value = message;
+    showToast("已把当前 Hermes 话术带入沟通记录");
+  });
+  document.getElementById("p0RefreshButton").addEventListener("click", () => loadP0Data().then(() => showToast("P0 业务记录已刷新")).catch(error => showToast(error.message)));
 
   document.getElementById("teacherForm").addEventListener("submit", event => { event.preventDefault(); createTeacher(event.currentTarget).catch(error => showToast(error.message)); });
   document.getElementById("teacherMonth").addEventListener("change", renderTeacherCalendar);
@@ -691,11 +861,14 @@ function bindEvents() {
 }
 
 function render() {
+  renderP0Options();
+  renderP0Records();
   renderList();
   renderDetail();
 }
 
 bindEvents();
+initP0Forms();
 renderTeacherCalendar();
-Promise.all([loadSession(), loadStudents(), loadNotifications(), loadScheduleMeta(), loadLessons()]).catch(() => showToast("请先登录"));
+Promise.all([loadSession(), loadStudents(), loadNotifications(), loadScheduleMeta(), loadLessons(), loadP0Data()]).catch(() => showToast("请先登录"));
 scanKnowledgeFiles().catch(() => {});

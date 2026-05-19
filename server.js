@@ -16,6 +16,9 @@ const DATA_FILE = path.join(DATA_DIR, "data.json");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
 const NOTIFICATIONS_FILE = path.join(DATA_DIR, "notifications.json");
 const SCHEDULE_FILE = path.join(DATA_DIR, "schedule.json");
+const ATTENDANCE_FILE = path.join(DATA_DIR, "attendance.json");
+const FINANCE_FILE = path.join(DATA_DIR, "finance.json");
+const COMMUNICATIONS_FILE = path.join(DATA_DIR, "communications.json");
 const KNOWLEDGE_DIR = path.join(DATA_DIR, "knowledge_base");
 const TEACHERS_KB_FILE = path.join(KNOWLEDGE_DIR, "teachers.json");
 const STUDENTS_KB_FILE = path.join(KNOWLEDGE_DIR, "students.json");
@@ -72,11 +75,20 @@ async function copySeedDirectoryIfMissing(seedPath, targetPath) {
   }
 }
 
+async function createRuntimeFileIfMissing(targetPath, fallbackContent) {
+  if (await pathExists(targetPath)) return;
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.writeFile(targetPath, fallbackContent, "utf8");
+}
+
 async function ensureRuntimeStorage() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await copySeedFileIfMissing(SEED_DATA_FILE, DATA_FILE, "[]\n");
   await copySeedFileIfMissing(SEED_USERS_FILE, USERS_FILE, "[]\n");
   await copySeedFileIfMissing(SEED_NOTIFICATIONS_FILE, NOTIFICATIONS_FILE, "[]\n");
+  await createRuntimeFileIfMissing(ATTENDANCE_FILE, "[]\n");
+  await createRuntimeFileIfMissing(FINANCE_FILE, "[]\n");
+  await createRuntimeFileIfMissing(COMMUNICATIONS_FILE, "[]\n");
   await copySeedFileIfMissing(SEED_SCHEDULE_FILE, SCHEDULE_FILE, JSON.stringify({
     courseTypes: [],
     classes: [],
@@ -122,6 +134,45 @@ async function readNotifications() {
 
 async function writeNotifications(notifications) {
   await fs.writeFile(NOTIFICATIONS_FILE, `${JSON.stringify(notifications, null, 2)}\n`, "utf8");
+}
+
+async function readJsonArray(filePath) {
+  try {
+    const raw = await fs.readFile(filePath, "utf8");
+    const records = JSON.parse(raw);
+    return Array.isArray(records) ? records : [];
+  } catch {
+    return [];
+  }
+}
+
+async function writeJsonArray(filePath, records) {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify(records, null, 2)}\n`, "utf8");
+}
+
+async function readAttendanceRecords() {
+  return readJsonArray(ATTENDANCE_FILE);
+}
+
+async function writeAttendanceRecords(records) {
+  await writeJsonArray(ATTENDANCE_FILE, records);
+}
+
+async function readFinanceRecords() {
+  return readJsonArray(FINANCE_FILE);
+}
+
+async function writeFinanceRecords(records) {
+  await writeJsonArray(FINANCE_FILE, records);
+}
+
+async function readCommunicationRecords() {
+  return readJsonArray(COMMUNICATIONS_FILE);
+}
+
+async function writeCommunicationRecords(records) {
+  await writeJsonArray(COMMUNICATIONS_FILE, records);
 }
 
 async function readTeachersKnowledge(fallback = []) {
@@ -469,6 +520,46 @@ function makeSummary(students) {
   };
 }
 
+function dateOnly(value) {
+  const text = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString().slice(0, 10) : parsed.toISOString().slice(0, 10);
+}
+
+function isCurrentMonth(dateText) {
+  const now = new Date();
+  const date = new Date(`${dateOnly(dateText)}T00:00:00`);
+  return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+}
+
+function isToday(dateText) {
+  return dateOnly(dateText) === new Date().toISOString().slice(0, 10);
+}
+
+function attendanceConsumesLessons(status) {
+  return ["\u5230\u8bfe", "\u65f7\u8bfe", "\u8865\u8bfe"].includes(String(status || ""));
+}
+
+function makeP0Summary(attendance, finance, communications) {
+  const monthAttendance = attendance.filter(item => isCurrentMonth(item.date));
+  const monthIncome = finance
+    .filter(item => item.direction === "income" && item.status !== "\u4f5c\u5e9f" && isCurrentMonth(item.date))
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const monthExpense = finance
+    .filter(item => item.direction === "expense" && item.status !== "\u4f5c\u5e9f" && isCurrentMonth(item.date))
+    .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+
+  return {
+    todayAttendanceCount: attendance.filter(item => isToday(item.date)).length,
+    monthConsumedLessons: monthAttendance.reduce((sum, item) => sum + Number(item.consumedLessons || 0), 0),
+    monthIncome,
+    monthExpense,
+    monthProfit: monthIncome - monthExpense,
+    pendingFollowUps: communications.filter(item => item.status === "\u5f85\u8ddf\u8fdb").length
+  };
+}
+
 function renderTemplate(template, payload) {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => payload[key] ?? "");
 }
@@ -584,6 +675,112 @@ async function createStudent(body, students) {
   student.proof = evidenceToProof(mergedEvidence);
   student.updatedAt = new Date().toISOString();
   return { student, isUpdate: Boolean(existing) };
+}
+
+function createAttendanceRecord(body, students, user) {
+  const student = students.find(item => item.id === Number(body.studentId));
+  if (!student) return { error: "\u8bf7\u9009\u62e9\u6709\u6548\u5b66\u5458" };
+
+  const status = String(body.status || "\u5230\u8bfe").trim();
+  const requestedLessons = Math.max(0, toNumber(body.lessons, 1));
+  const consumedLessons = attendanceConsumesLessons(status) ? requestedLessons : 0;
+  const beforeLessons = toNumber(student.lessonsLeft, 0);
+  const afterLessons = Math.max(0, beforeLessons - consumedLessons);
+
+  if (consumedLessons > 0 && beforeLessons <= 0) {
+    return { error: "\u8be5\u5b66\u5458\u5269\u4f59\u8bfe\u65f6\u4e0d\u8db3\uff0c\u8bf7\u5148\u8865\u5f55\u7eed\u8d39\u6216\u8c03\u6574\u8bfe\u65f6" };
+  }
+
+  const record = {
+    id: 0,
+    date: dateOnly(body.date),
+    studentId: student.id,
+    studentName: student.name,
+    course: String(body.course || student.course || "").trim(),
+    teacher: String(body.teacher || student.teacher || "").trim(),
+    status,
+    lessons: requestedLessons,
+    consumedLessons,
+    beforeLessons,
+    afterLessons,
+    note: String(body.note || "").trim(),
+    operator: user?.username || "",
+    createdAt: new Date().toISOString()
+  };
+
+  student.lessonsLeft = afterLessons;
+  student.daysToEnd = Math.max(0, toNumber(student.daysToEnd, 0) - (consumedLessons > 0 ? 1 : 0));
+  student.updatedAt = new Date().toISOString();
+
+  return { record, student };
+}
+
+function createFinanceRecord(body, students, user) {
+  const direction = body.direction === "expense" ? "expense" : "income";
+  const student = body.studentId ? students.find(item => item.id === Number(body.studentId)) : null;
+  const lessons = Math.max(0, toNumber(body.lessons, 0));
+  const amount = Math.max(0, toNumber(body.amount, 0));
+
+  if (!amount) return { error: "\u91d1\u989d\u5fc5\u987b\u5927\u4e8e 0" };
+  if (body.studentId && !student) return { error: "\u5173\u8054\u5b66\u5458\u4e0d\u5b58\u5728" };
+
+  const beforeLessons = student ? toNumber(student.lessonsLeft, 0) : null;
+  const afterLessons = student && direction === "income" && lessons > 0 ? beforeLessons + lessons : beforeLessons;
+  const record = {
+    id: 0,
+    date: dateOnly(body.date),
+    direction,
+    category: String(body.category || (direction === "income" ? "\u6536\u5165" : "\u652f\u51fa")).trim(),
+    studentId: student?.id || null,
+    studentName: student?.name || "",
+    amount,
+    lessons,
+    beforeLessons,
+    afterLessons,
+    paymentMethod: String(body.paymentMethod || "").trim(),
+    note: String(body.note || "").trim(),
+    status: "\u6709\u6548",
+    operator: user?.username || "",
+    createdAt: new Date().toISOString()
+  };
+
+  if (student && direction === "income" && lessons > 0) {
+    student.lessonsLeft = afterLessons;
+    student.prepaidLessons = toNumber(student.prepaidLessons, 0) + lessons;
+    student.paidAmount = toNumber(student.paidAmount, 0) + amount;
+    student.renewalValue = amount;
+    student.paidAt = record.date;
+    student.status = record.category === "\u7eed\u8d39" ? "\u5df2\u7eed\u8d39" : student.status;
+    student.updatedAt = new Date().toISOString();
+  }
+
+  return { record, student };
+}
+
+function createCommunicationRecord(body, students, user) {
+  const student = students.find(item => item.id === Number(body.studentId));
+  if (!student) return { error: "\u8bf7\u9009\u62e9\u6709\u6548\u5b66\u5458" };
+
+  const record = {
+    id: 0,
+    date: dateOnly(body.date),
+    studentId: student.id,
+    studentName: student.name,
+    scenario: String(body.scenario || "\u65e5\u5e38\u7ef4\u62a4").trim(),
+    channel: String(body.channel || "\u5fae\u4fe1").trim(),
+    nextFollowUp: String(body.nextFollowUp || "").trim(),
+    status: body.status === "\u5df2\u5b8c\u6210" ? "\u5df2\u5b8c\u6210" : "\u5f85\u8ddf\u8fdb",
+    content: String(body.content || "").trim(),
+    operator: user?.username || "",
+    createdAt: new Date().toISOString()
+  };
+
+  student.lastContact = "\u4eca\u5929";
+  student.parentReplies = Math.max(1, toNumber(student.parentReplies, 0));
+  student.status = record.status === "\u5df2\u5b8c\u6210" ? "\u5df2\u8ddf\u8fdb" : "\u5f85\u8ddf\u8fdb";
+  student.updatedAt = new Date().toISOString();
+
+  return { record, student };
 }
 
 function dateRangeOverlaps(startA, endA, startB, endB) {
@@ -1275,6 +1472,73 @@ async function handleApi(req, res, url) {
 
   const students = await readStudents();
   const schedule = await readSchedule();
+  const attendanceRecords = await readAttendanceRecords();
+  const financeRecords = await readFinanceRecords();
+  const communicationRecords = await readCommunicationRecords();
+
+  if (req.method === "GET" && url.pathname === "/api/p0") {
+    sendJson(res, 200, {
+      attendance: attendanceRecords,
+      finance: financeRecords,
+      communications: communicationRecords,
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/p0/attendance") {
+    const body = await readBody(req);
+    const result = createAttendanceRecord(body, students, user);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    result.record.id = nextId(attendanceRecords);
+    attendanceRecords.unshift(result.record);
+    await writeAttendanceRecords(attendanceRecords);
+    await writeStudents(students);
+    sendJson(res, 201, {
+      record: result.record,
+      student: enrichStudent(result.student),
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      businessSummary: makeSummary(students),
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/p0/finance") {
+    const body = await readBody(req);
+    const result = createFinanceRecord(body, students, user);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    result.record.id = nextId(financeRecords);
+    financeRecords.unshift(result.record);
+    await writeFinanceRecords(financeRecords);
+    if (result.student) await writeStudents(students);
+    sendJson(res, 201, {
+      record: result.record,
+      student: result.student ? enrichStudent(result.student) : null,
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      businessSummary: makeSummary(students),
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/p0/communications") {
+    const body = await readBody(req);
+    const result = createCommunicationRecord(body, students, user);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    result.record.id = nextId(communicationRecords);
+    communicationRecords.unshift(result.record);
+    await writeCommunicationRecords(communicationRecords);
+    await writeStudents(students);
+    sendJson(res, 201, {
+      record: result.record,
+      student: enrichStudent(result.student),
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      businessSummary: makeSummary(students),
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
 
   if (req.method === "GET" && url.pathname === "/api/teachers") {
     sendJson(res, 200, { teachers: schedule.teachers.map(teacher => enrichTeacher(teacher, schedule)) });
@@ -1498,13 +1762,35 @@ async function handleApi(req, res, url) {
     for (const studentId of lesson.studentIds || []) {
       const student = students.find(item => item.id === Number(studentId));
       if (!student) continue;
+      const beforeLessons = Number(student.lessonsLeft || 0);
       student.lessonsLeft = Math.max(0, Number(student.lessonsLeft || 0) - 1);
-      consumed.push({ studentId: student.id, studentName: student.name, lessonsLeft: student.lessonsLeft });
+      consumed.push({ studentId: student.id, studentName: student.name, beforeLessons, lessonsLeft: student.lessonsLeft });
     }
 
     lesson.status = "completed";
     lesson.completedAt = new Date().toISOString();
+    const enrichedCompletedLesson = enrichLesson(lesson, schedule, students);
+    for (const item of consumed) {
+      attendanceRecords.unshift({
+        id: nextId(attendanceRecords),
+        date: dateOnly(lesson.startTime),
+        studentId: item.studentId,
+        studentName: item.studentName,
+        course: enrichedCompletedLesson.courseName,
+        teacher: enrichedCompletedLesson.teacherName,
+        status: "\u5230\u8bfe",
+        lessons: 1,
+        consumedLessons: 1,
+        beforeLessons: item.beforeLessons,
+        afterLessons: item.lessonsLeft,
+        note: "\u7531\u8bfe\u8868\u5b8c\u6210\u8bfe\u6d88\u81ea\u52a8\u751f\u6210",
+        lessonId: lesson.id,
+        operator: user?.username || "",
+        createdAt: new Date().toISOString()
+      });
+    }
     await writeStudents(students);
+    await writeAttendanceRecords(attendanceRecords);
     for (const item of consumed) {
       const student = students.find(entry => entry.id === item.studentId);
       if (student) await syncStudentKnowledge(student);

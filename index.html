@@ -27,6 +27,130 @@
   </header>
 
   <main class="app-shell">
+    <section class="fold-section p0-section" data-fold-section="p0">
+      <button class="fold-header" type="button" aria-expanded="true">
+        <div>
+          <p class="eyebrow">P0 经营闭环</p>
+          <h2>课消考勤、财务收支与家校沟通</h2>
+        </div>
+        <span class="fold-meta">上课记录 → 自动课消 → 收支流水 → 沟通跟进 → 老板看板</span>
+      </button>
+      <div class="fold-body">
+        <section class="p0-dashboard" aria-label="P0经营看板">
+          <div class="p0-metric">
+            <span id="p0TodayAttendance">0</span>
+            <small>今日课消记录</small>
+          </div>
+          <div class="p0-metric">
+            <span id="p0MonthLessons">0</span>
+            <small>本月课消课时</small>
+          </div>
+          <div class="p0-metric">
+            <span id="p0MonthIncome">¥0</span>
+            <small>本月收入</small>
+          </div>
+          <div class="p0-metric">
+            <span id="p0MonthProfit">¥0</span>
+            <small>本月利润</small>
+          </div>
+          <div class="p0-metric warn">
+            <span id="p0FollowUps">0</span>
+            <small>待跟进沟通</small>
+          </div>
+        </section>
+
+        <section class="p0-workflow">
+          <article class="p0-card">
+            <div class="p0-card-head">
+              <div>
+                <p class="eyebrow">动作 1</p>
+                <h3>新增课消 / 考勤</h3>
+              </div>
+              <span>到课扣课时，请假不扣</span>
+            </div>
+            <form id="p0AttendanceForm" class="p0-form">
+              <label>上课日期<input name="date" type="date" required></label>
+              <label>学员<select name="studentId" id="p0AttendanceStudent" required></select></label>
+              <label>课程/班级<input name="course" placeholder="例如：少儿创意美术"></label>
+              <label>老师<input name="teacher" placeholder="例如：周老师"></label>
+              <label>考勤状态<select name="status"><option value="到课">到课</option><option value="请假">请假</option><option value="旷课">旷课</option><option value="补课">补课</option><option value="试听">试听</option></select></label>
+              <label>消耗课时<input name="lessons" type="number" min="0" step="0.5" value="1"></label>
+              <label class="wide">课堂备注<textarea name="note" rows="3" placeholder="记录课堂状态、作品表现、下次建议"></textarea></label>
+              <button class="primary wide" type="submit">保存课消考勤</button>
+            </form>
+          </article>
+
+          <article class="p0-card">
+            <div class="p0-card-head">
+              <div>
+                <p class="eyebrow">动作 2</p>
+                <h3>新增财务流水</h3>
+              </div>
+              <span>收入加课时，支出进利润</span>
+            </div>
+            <form id="p0FinanceForm" class="p0-form">
+              <label>日期<input name="date" type="date" required></label>
+              <label>收支类型<select name="direction"><option value="income">收入</option><option value="expense">支出</option></select></label>
+              <label>项目<select name="category"><option value="续费">续费</option><option value="新报名">新报名</option><option value="试听转化">试听转化</option><option value="材料费">材料费</option><option value="老师课酬">老师课酬</option><option value="房租">房租</option><option value="营销">营销</option><option value="退款">退款</option><option value="其他">其他</option></select></label>
+              <label>关联学员<select name="studentId" id="p0FinanceStudent"></select></label>
+              <label>金额<input name="amount" type="number" min="0" value="3980"></label>
+              <label>购买课时<input name="lessons" type="number" min="0" step="0.5" value="24"></label>
+              <label>支付方式<select name="paymentMethod"><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="现金">现金</option><option value="银行转账">银行转账</option><option value="其他">其他</option></select></label>
+              <label class="wide">备注<textarea name="note" rows="3" placeholder="例如：春季班续费，赠送材料包"></textarea></label>
+              <button class="primary wide" type="submit">保存财务流水</button>
+            </form>
+          </article>
+
+          <article class="p0-card">
+            <div class="p0-card-head">
+              <div>
+                <p class="eyebrow">动作 3</p>
+                <h3>新增家校沟通</h3>
+              </div>
+              <span>Hermes 话术可沉淀为跟进记录</span>
+            </div>
+            <form id="p0CommunicationForm" class="p0-form">
+              <label>沟通日期<input name="date" type="date" required></label>
+              <label>学员<select name="studentId" id="p0CommunicationStudent" required></select></label>
+              <label>场景<select name="scenario"><option value="续费提醒">续费提醒</option><option value="课堂反馈">课堂反馈</option><option value="请假沟通">请假沟通</option><option value="缺勤跟进">缺勤跟进</option><option value="转介绍">转介绍</option><option value="问题处理">问题处理</option><option value="日常维护">日常维护</option></select></label>
+              <label>方式<select name="channel"><option value="微信">微信</option><option value="电话">电话</option><option value="面谈">面谈</option><option value="群聊">群聊</option><option value="其他">其他</option></select></label>
+              <label>下次跟进<input name="nextFollowUp" type="date"></label>
+              <label>状态<select name="status"><option value="待跟进">待跟进</option><option value="已完成">已完成</option></select></label>
+              <label class="wide">沟通内容<textarea name="content" id="p0CommunicationContent" rows="4" placeholder="可手动记录，也可以先在右侧学员详情生成 Hermes 话术后保存"></textarea></label>
+              <div class="p0-actions wide">
+                <button class="primary" type="submit">保存沟通记录</button>
+                <button id="p0UseMessageButton" type="button">使用当前话术</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="p0-card p0-records">
+            <div class="p0-card-head">
+              <div>
+                <p class="eyebrow">实时记录</p>
+                <h3>最近业务动作</h3>
+              </div>
+              <button id="p0RefreshButton" type="button">刷新记录</button>
+            </div>
+            <div class="p0-record-columns">
+              <div>
+                <h4>课消考勤</h4>
+                <div id="p0AttendanceList" class="p0-record-list"></div>
+              </div>
+              <div>
+                <h4>财务流水</h4>
+                <div id="p0FinanceList" class="p0-record-list"></div>
+              </div>
+              <div>
+                <h4>家校沟通</h4>
+                <div id="p0CommunicationList" class="p0-record-list"></div>
+              </div>
+            </div>
+          </article>
+        </section>
+      </div>
+    </section>
+
     <section class="fold-section" data-fold-section="entry">
       <button class="fold-header" type="button" aria-expanded="true">
         <div>
