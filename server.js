@@ -30,6 +30,7 @@ const HERMES_GATEWAY_URL = String(process.env.HERMES_GATEWAY_URL || "").trim();
 const HERMES_GATEWAY_TOKEN = String(process.env.HERMES_GATEWAY_TOKEN || "").trim();
 const HERMES_MODEL = String(process.env.HERMES_MODEL || "").trim();
 const HERMES_TIMEOUT_MS = Number(process.env.HERMES_TIMEOUT_MS || 12000);
+const HERMES_HEALTH_TIMEOUT_MS = Number(process.env.HERMES_HEALTH_TIMEOUT_MS || 45000);
 const COOKIE_NAME = "mvp_session";
 const sessions = new Map();
 
@@ -427,7 +428,8 @@ function publicHermesConfig() {
     enabled: hermesEnabled(),
     gatewayHost: host,
     model: HERMES_MODEL || "",
-    timeoutMs: HERMES_TIMEOUT_MS
+    timeoutMs: HERMES_TIMEOUT_MS,
+    healthTimeoutMs: HERMES_HEALTH_TIMEOUT_MS
   };
 }
 
@@ -486,24 +488,61 @@ async function checkHermesStatus() {
   }
 
   const startedAt = Date.now();
-  const payload = await postHermes("/api/v1/risk", {
-    student_name: "Hermes连通性检测",
-    remaining_lessons: 10,
-    absence_rate: 0,
-    leave_count: 0,
-    communication_frequency: "normal",
-    scenario: "health_check",
-    model: HERMES_MODEL || undefined,
-    source_of_truth: "This is a read-only connectivity check from Zeabur."
-  });
-  const reachable = Boolean(payload);
-  return {
-    ...config,
-    reachable,
-    checkedAt,
-    latencyMs: Date.now() - startedAt,
-    message: reachable ? "Hermes 网关可用" : "无法连接 Hermes 网关，请检查 ngrok 地址、Hermes 服务、Token 或本地网络"
-  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), HERMES_HEALTH_TIMEOUT_MS);
+  try {
+    const response = await fetch(hermesEndpoint("/api/v1/risk"), {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(HERMES_GATEWAY_TOKEN ? {
+          Authorization: `Bearer ${HERMES_GATEWAY_TOKEN}`,
+          "X-Hermes-Gateway-Token": HERMES_GATEWAY_TOKEN,
+          "X-API-Key": HERMES_GATEWAY_TOKEN
+        } : {})
+      },
+      body: JSON.stringify({
+        student_name: "Hermes连通性检测",
+        remaining_lessons: 10,
+        absence_rate: 0,
+        leave_count: 0,
+        communication_frequency: "normal",
+        scenario: "health_check",
+        model: HERMES_MODEL || undefined,
+        source_of_truth: "This is a read-only connectivity check from Zeabur."
+      }),
+      signal: controller.signal
+    });
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => "");
+    const reachable = response.ok;
+    return {
+      ...config,
+      reachable,
+      checkedAt,
+      latencyMs: Date.now() - startedAt,
+      statusCode: response.status,
+      message: reachable
+        ? "Hermes 网关可用"
+        : `Hermes 网关返回 ${response.status}，请检查 Token 或 Hermes API`,
+      responseOk: response.ok,
+      responseSuccess: typeof payload === "object" && payload ? payload.success : undefined
+    };
+  } catch (error) {
+    return {
+      ...config,
+      reachable: false,
+      checkedAt,
+      latencyMs: Date.now() - startedAt,
+      message: error?.name === "AbortError"
+        ? `Hermes 检测超时（${HERMES_HEALTH_TIMEOUT_MS}ms），但业务调用可能仍可用`
+        : `无法连接 Hermes 网关：${error?.message || "未知错误"}`
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function buildStudentAiContext(student, tone) {
