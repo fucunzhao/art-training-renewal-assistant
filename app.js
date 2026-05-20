@@ -304,6 +304,78 @@ function renderP0FilterSummary(filtered) {
   `;
 }
 
+function currentFilteredP0Records() {
+  return {
+    attendance: filterP0Records(state.p0Records.attendance, "attendance"),
+    finance: filterP0Records(state.p0Records.finance, "finance"),
+    communications: filterP0Records(state.p0Records.communications, "communication")
+  };
+}
+
+function csvCell(value) {
+  const text = String(value ?? "").replace(/\r?\n/g, " ");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function p0ExportRows(filtered) {
+  const rows = [["类型", "日期", "学员", "项目/场景", "课程/老师", "金额", "课时", "状态", "方式", "备注/内容"]];
+  filtered.attendance.forEach(item => rows.push([
+    "课消考勤",
+    item.date,
+    item.studentName || studentNameById(item.studentId),
+    item.status,
+    `${item.course || ""} ${item.teacher || ""}`.trim(),
+    "",
+    item.consumedLessons ?? item.lessons ?? 0,
+    item.status || "有效",
+    "",
+    item.note || ""
+  ]));
+  filtered.finance.forEach(item => rows.push([
+    "财务流水",
+    item.date,
+    item.studentName || studentNameById(item.studentId),
+    item.category || "",
+    item.direction === "income" ? "收入" : "支出",
+    item.amount || 0,
+    item.lessons || 0,
+    item.status || "有效",
+    item.paymentMethod || "",
+    item.note || ""
+  ]));
+  filtered.communications.forEach(item => rows.push([
+    "家校沟通",
+    item.date,
+    item.studentName || studentNameById(item.studentId),
+    item.scenario || "",
+    "",
+    "",
+    "",
+    item.status || "",
+    item.channel || "",
+    item.content || ""
+  ]));
+  return rows;
+}
+
+function exportP0Records() {
+  const filtered = currentFilteredP0Records();
+  const rows = p0ExportRows(filtered);
+  if (rows.length <= 1) return showToast("当前筛选条件下没有可导出的记录");
+  const csv = rows.map(row => row.map(csvCell).join(",")).join("\n");
+  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const date = todayValue();
+  link.href = url;
+  link.download = `P0业务台账-${date}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast(`已导出 ${rows.length - 1} 条业务记录`);
+}
+
 function renderP0RecordList(id, records, type) {
   const container = document.getElementById(id);
   if (!container) return;
@@ -423,11 +495,7 @@ function resetAiRiskSection() {
 
 function renderP0Records(summary = null) {
   renderP0Dashboard(summary);
-  const filtered = {
-    attendance: filterP0Records(state.p0Records.attendance, "attendance"),
-    finance: filterP0Records(state.p0Records.finance, "finance"),
-    communications: filterP0Records(state.p0Records.communications, "communication")
-  };
+  const filtered = currentFilteredP0Records();
   renderP0FilterSummary(filtered);
   renderP0RecordList("p0AttendanceList", filtered.attendance, "attendance");
   renderP0RecordList("p0FinanceList", filtered.finance, "finance");
@@ -1321,6 +1389,7 @@ function bindEvents() {
     if (input) input.addEventListener("input", syncP0FiltersFromControls);
   });
   document.getElementById("p0RecordStudentFilter").addEventListener("change", syncP0FiltersFromControls);
+  document.getElementById("p0ExportRecordsButton").addEventListener("click", exportP0Records);
   document.getElementById("p0ResetFiltersButton").addEventListener("click", resetP0Filters);
   document.querySelector(".p0-records").addEventListener("click", event => {
     const attendanceButton = event.target.closest("[data-void-attendance]");
