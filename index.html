@@ -19,6 +19,10 @@
         <div><span id="summaryValue">¥0</span><small>待保护收入</small></div>
       </div>
       <div class="account-box">
+        <div id="hermesStatus" class="hermes-status checking">
+          <span>Hermes 检测中</span>
+          <button id="checkHermesButton" type="button">检测</button>
+        </div>
         <span id="currentUser">未登录</span>
         <button id="notificationButton" type="button">消息 <b id="notificationBadge">0</b></button>
         <button id="logoutButton" type="button">退出</button>
@@ -248,12 +252,18 @@
           <div class="section-title entry-title">
             <div><p class="eyebrow">AI录入</p><h2>从知识库自动采集</h2></div>
             <div class="ai-actions">
+              <button id="downloadImportTemplateButton" type="button">下载导入模板</button>
               <button id="scanKnowledgeButton" type="button">扫描知识库</button>
               <button id="extractKnowledgeButton" class="primary" type="button">AI识别学员</button>
               <button id="importKnowledgeButton" type="button">导入选中</button>
+              <button id="downloadImportReportButton" type="button">下载导入报告</button>
             </div>
           </div>
           <p class="knowledge-path">上传学员记录文件，或扫描服务器 <code>knowledge_base</code> 文件夹。教师资料会统一存储在 <code>knowledge_base/teachers.json</code>。</p>
+          <div class="import-help">
+            <span>建议先下载 CSV 模板，保留表头后批量填写；同名学员会更新，不会重复新增。</span>
+            <span>剩余课时可不填，系统会按预缴课时、缴费和课消记录自动计算。</span>
+          </div>
           <div class="upload-row"><input id="knowledgeUpload" type="file" accept=".txt,.md,.json,.csv"><button id="uploadKnowledgeButton" type="button">上传到知识库</button></div>
           <div id="knowledgeFiles" class="knowledge-files"></div>
           <div id="knowledgeCandidates" class="knowledge-candidates"></div>

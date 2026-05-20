@@ -414,6 +414,23 @@ function hermesEndpoint(pathname) {
   return `${base}${pathname}`;
 }
 
+function publicHermesConfig() {
+  let host = "";
+  try {
+    host = HERMES_GATEWAY_URL ? new URL(HERMES_GATEWAY_URL).host : "";
+  } catch {
+    host = HERMES_GATEWAY_URL ? "invalid-url" : "";
+  }
+  return {
+    provider: hermesEnabled() ? "hermes" : "none",
+    configured: Boolean(HERMES_GATEWAY_URL),
+    enabled: hermesEnabled(),
+    gatewayHost: host,
+    model: HERMES_MODEL || "",
+    timeoutMs: HERMES_TIMEOUT_MS
+  };
+}
+
 async function postHermes(pathname, payload) {
   if (!hermesEnabled()) return null;
 
@@ -446,6 +463,47 @@ async function postHermes(pathname, payload) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function checkHermesStatus() {
+  const config = publicHermesConfig();
+  const checkedAt = new Date().toISOString();
+  if (!config.configured) {
+    return {
+      ...config,
+      reachable: false,
+      checkedAt,
+      message: "未配置 HERMES_GATEWAY_URL"
+    };
+  }
+  if (!config.enabled) {
+    return {
+      ...config,
+      reachable: false,
+      checkedAt,
+      message: "AI_PROVIDER 不是 hermes 或网关配置不完整"
+    };
+  }
+
+  const startedAt = Date.now();
+  const payload = await postHermes("/api/v1/risk", {
+    student_name: "Hermes连通性检测",
+    remaining_lessons: 10,
+    absence_rate: 0,
+    leave_count: 0,
+    communication_frequency: "normal",
+    scenario: "health_check",
+    model: HERMES_MODEL || undefined,
+    source_of_truth: "This is a read-only connectivity check from Zeabur."
+  });
+  const reachable = Boolean(payload);
+  return {
+    ...config,
+    reachable,
+    checkedAt,
+    latencyMs: Date.now() - startedAt,
+    message: reachable ? "Hermes 网关可用" : "无法连接 Hermes 网关，请检查 ngrok 地址、Hermes 服务、Token 或本地网络"
+  };
 }
 
 function buildStudentAiContext(student, tone) {
@@ -1744,16 +1802,18 @@ async function handleApi(req, res, url) {
     if (!user) return sendJson(res, 401, { error: "\u672a\u767b\u5f55" });
     sendJson(res, 200, {
       user,
-      ai: {
-        provider: hermesEnabled() ? "hermes" : "none",
-        hermesEnabled: hermesEnabled()
-      }
+      ai: publicHermesConfig()
     });
     return;
   }
 
   if (!user) {
     sendJson(res, 401, { error: "\u672a\u767b\u5f55" });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/hermes/status") {
+    sendJson(res, 200, { hermes: await checkHermesStatus() });
     return;
   }
 

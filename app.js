@@ -1,6 +1,8 @@
 const state = {
   students: [],
   knowledgeCandidates: [],
+  knowledgeImportReport: null,
+  hermesStatus: null,
   notifications: [],
   scheduleMeta: null,
   lessons: [],
@@ -53,6 +55,49 @@ async function api(path, options = {}) {
 async function loadSession() {
   const data = await api("/api/session");
   document.getElementById("currentUser").textContent = `${data.user.role}：${data.user.username}`;
+  state.hermesStatus = {
+    ...(data.ai || {}),
+    reachable: Boolean(data.ai?.enabled),
+    message: data.ai?.enabled ? "Hermes 已配置，点击检测确认连通性" : "Hermes 未启用"
+  };
+  renderHermesStatus();
+}
+
+function renderHermesStatus() {
+  const box = document.getElementById("hermesStatus");
+  if (!box) return;
+  const status = state.hermesStatus || {};
+  const isReady = Boolean(status.reachable);
+  const isConfigured = Boolean(status.configured || status.enabled);
+  box.classList.toggle("ok", isReady);
+  box.classList.toggle("bad", !isReady && isConfigured);
+  box.classList.toggle("muted", !isConfigured);
+  box.classList.toggle("checking", Boolean(status.checking));
+  const label = status.checking
+    ? "Hermes 检测中"
+    : isReady
+      ? `Hermes 可用${status.latencyMs ? ` · ${status.latencyMs}ms` : ""}`
+      : isConfigured
+        ? "Hermes 异常"
+        : "Hermes 未配置";
+  const detail = [
+    status.gatewayHost ? `网关：${status.gatewayHost}` : "",
+    status.model ? `模型：${status.model}` : "",
+    status.message || ""
+  ].filter(Boolean).join("；");
+  box.querySelector("span").textContent = label;
+  box.title = detail || label;
+}
+
+async function checkHermesConnection(options = {}) {
+  state.hermesStatus = { ...(state.hermesStatus || {}), checking: true };
+  renderHermesStatus();
+  const data = await api("/api/hermes/status");
+  state.hermesStatus = data.hermes || {};
+  renderHermesStatus();
+  if (!options.silent) {
+    showToast(state.hermesStatus.message || (state.hermesStatus.reachable ? "Hermes 可用" : "Hermes 不可用"));
+  }
 }
 
 async function loadStudents() {
@@ -374,6 +419,19 @@ function csvCell(value) {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
+function downloadCsvFile(fileName, rows) {
+  const csv = rows.map(row => row.map(csvCell).join(",")).join("\n");
+  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function p0ExportRows(filtered) {
   const rows = [["类型", "日期", "学员", "项目/场景", "课程/老师", "金额", "课时", "状态", "方式", "备注/内容"]];
   filtered.attendance.forEach(item => rows.push([
@@ -419,17 +477,8 @@ function exportP0Records() {
   const filtered = currentFilteredP0Records();
   const rows = p0ExportRows(filtered);
   if (rows.length <= 1) return showToast("当前筛选条件下没有可导出的记录");
-  const csv = rows.map(row => row.map(csvCell).join(",")).join("\n");
-  const blob = new Blob([`\ufeff${csv}`], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
   const date = todayValue();
-  link.href = url;
-  link.download = `P0业务台账-${date}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+  downloadCsvFile(`P0业务台账-${date}.csv`, rows);
   showToast(`已导出 ${rows.length - 1} 条业务记录`);
 }
 
@@ -1271,9 +1320,28 @@ async function uploadKnowledgeFile() {
   showToast("文件已上传到知识库");
 }
 
+function downloadStudentImportTemplate() {
+  const rows = [
+    ["姓名", "年龄", "课程", "老师", "缴费时间", "缴费金额", "缴费状态", "欠费金额", "预缴课时", "剩余课时", "预计课消天数", "缺勤率", "家长回复", "作业缺交", "最近联系", "成长证据"],
+    ["王一诺", "8", "创意美术", "周老师", todayValue(), "3980", "已缴清", "0", "32", "", "14", "0", "1", "0", "未联系", "色彩层次提升明显"],
+    ["李小美", "7", "素描基础", "李老师", todayValue(), "1000", "部分缴费", "1980", "24", "", "10", "5", "0", "1", "已微信沟通", "线条控制更稳定"]
+  ];
+  downloadCsvFile(`学员批量导入模板-${todayValue()}.csv`, rows);
+  showToast("已下载学员批量导入模板");
+}
+
+function mergeImportedStudents(imported, current) {
+  const importedIds = new Set(imported.map(item => item.id));
+  return [
+    ...imported,
+    ...current.filter(student => !importedIds.has(student.id))
+  ].sort((a, b) => b.riskScore - a.riskScore);
+}
+
 async function extractKnowledgeCandidates() {
   const data = await api("/api/knowledge/extract", { method: "POST", body: JSON.stringify({}) });
   state.knowledgeCandidates = data.candidates || [];
+  state.knowledgeImportReport = null;
   renderKnowledgeCandidates();
   const summary = data.summary;
   showToast(summary ? `识别 ${summary.total} 条：新增 ${summary.create}，更新 ${summary.update}，需补充 ${summary.invalid}` : `识别到 ${state.knowledgeCandidates.length} 条候选记录`);
@@ -1307,14 +1375,49 @@ async function importKnowledgeCandidates() {
   const candidates = checked.map(input => state.knowledgeCandidates[Number(input.dataset.candidateIndex)]);
   if (!candidates.length) return showToast("请选择要导入的记录");
   const data = await api("/api/knowledge/import", { method: "POST", body: JSON.stringify({ candidates }) });
-  if (!data.imported.length) return showToast("没有可导入的完整记录");
-  state.students = [...data.imported, ...state.students].sort((a, b) => b.riskScore - a.riskScore);
+  state.knowledgeImportReport = data;
+  if (!data.imported.length) return showToast("没有可导入的完整记录，可下载导入报告查看原因");
+  state.students = mergeImportedStudents(data.imported, state.students);
   state.selectedId = data.imported[0].id;
   renderSummary(data.summary);
   render();
   await loadScheduleMeta();
   const summary = data.importSummary;
   showToast(summary ? `已导入 ${summary.imported} 条：新增 ${summary.created}，更新 ${summary.updated}，跳过 ${summary.skipped}` : `已导入 ${data.imported.length} 位学员`);
+}
+
+function downloadKnowledgeImportReport() {
+  const report = state.knowledgeImportReport;
+  if (!report) return showToast("请先执行一次导入，再下载导入报告");
+  const imported = (report.imported || []).map(item => [
+    "成功",
+    item.importAction === "update" ? "更新已有" : "新增",
+    item.name,
+    item.course,
+    item.teacher,
+    item.paymentStatus || "",
+    item.debtAmount || 0,
+    item.prepaidLessons ?? "",
+    item.lessonsLeft ?? "",
+    item.source || "",
+    ""
+  ]);
+  const skipped = (report.skipped || []).map(item => [
+    "跳过",
+    item.importAction === "invalid" ? "资料不完整" : "未导入",
+    item.name || "",
+    item.course || "",
+    item.teacher || "",
+    item.paymentStatus || "",
+    item.debtAmount || 0,
+    item.prepaidLessons ?? "",
+    item.lessonsLeft ?? "",
+    item.source || "",
+    item.reason || (item.missing?.length ? `缺少必填项：${item.missing.join("、")}` : "")
+  ]);
+  const rows = [["结果", "动作", "姓名", "课程", "老师", "缴费状态", "欠费金额", "预缴课时", "剩余课时", "来源", "原因"], ...imported, ...skipped];
+  downloadCsvFile(`学员导入报告-${todayValue()}.csv`, rows);
+  showToast(`已下载导入报告：成功 ${imported.length} 条，跳过 ${skipped.length} 条`);
 }
 
 async function triggerRiskNotifications() {
@@ -1448,6 +1551,11 @@ function bindEvents() {
   });
 
   document.getElementById("notificationButton").addEventListener("click", () => { document.getElementById("notificationDrawer").classList.add("open"); loadNotifications().catch(error => showToast(error.message)); });
+  document.getElementById("checkHermesButton").addEventListener("click", () => checkHermesConnection().catch(error => {
+    state.hermesStatus = { ...(state.hermesStatus || {}), reachable: false, checking: false, message: error.message };
+    renderHermesStatus();
+    showToast(error.message);
+  }));
   document.getElementById("closeNotificationButton").addEventListener("click", () => document.getElementById("notificationDrawer").classList.remove("open"));
   document.getElementById("triggerRiskNotificationsButton").addEventListener("click", () => triggerRiskNotifications().catch(error => showToast(error.message)));
   document.getElementById("markAllNotificationsButton").addEventListener("click", () => markAllNotificationsRead().catch(error => showToast(error.message)));
@@ -1607,10 +1715,12 @@ function bindEvents() {
   document.getElementById("studentForm").addEventListener("submit", event => { event.preventDefault(); createStudent(event.currentTarget).catch(error => showToast(error.message)); });
   document.getElementById("studentNameInput").addEventListener("input", event => { clearTimeout(state.lookupTimer); state.lookupTimer = setTimeout(() => lookupStudentByName(event.target.value).catch(error => showToast(error.message)), 350); });
   document.getElementById("resetStudentForm").addEventListener("click", () => document.getElementById("studentForm").reset());
+  document.getElementById("downloadImportTemplateButton").addEventListener("click", downloadStudentImportTemplate);
   document.getElementById("scanKnowledgeButton").addEventListener("click", () => scanKnowledgeFiles().catch(error => showToast(error.message)));
   document.getElementById("uploadKnowledgeButton").addEventListener("click", () => uploadKnowledgeFile().catch(error => showToast(error.message)));
   document.getElementById("extractKnowledgeButton").addEventListener("click", () => extractKnowledgeCandidates().catch(error => showToast(error.message)));
   document.getElementById("importKnowledgeButton").addEventListener("click", () => importKnowledgeCandidates().catch(error => showToast(error.message)));
+  document.getElementById("downloadImportReportButton").addEventListener("click", downloadKnowledgeImportReport);
   document.getElementById("logoutButton").addEventListener("click", async () => { await api("/api/logout", { method: "POST" }); window.location.href = "/login.html"; });
 }
 
@@ -1627,3 +1737,4 @@ initQuickLessonDefaults();
 renderTeacherCalendar();
 Promise.all([loadSession(), loadStudents(), loadNotifications(), loadScheduleMeta(), loadLessons(), loadP0Data()]).catch(() => showToast("请先登录"));
 scanKnowledgeFiles().catch(() => {});
+checkHermesConnection({ silent: true }).catch(() => {});

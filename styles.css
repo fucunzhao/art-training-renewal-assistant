@@ -4,6 +4,10 @@
   --line: #dbe1ea;
   --panel: #ffffff;
   --paper: #f6f7f4;
+  --section-p0: #256f5a;
+  --section-entry: #2e5f9f;
+  --section-schedule: #9a5b18;
+  --section-dashboard: #7161a8;
   --green: #256f5a;
   --amber: #b55d17;
   --red: #b53636;
@@ -20,7 +24,9 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--ink);
-  background: var(--paper);
+  background:
+    linear-gradient(180deg, #eef2f0 0, var(--paper) 260px),
+    var(--paper);
   font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", sans-serif;
 }
 
@@ -53,7 +59,7 @@ button {
 .account-box {
   display: grid;
   gap: 8px;
-  min-width: 118px;
+  min-width: 178px;
   color: var(--muted);
   font-size: 13px;
 }
@@ -80,10 +86,69 @@ button {
   font-size: 12px;
 }
 
+.hermes-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+}
+
+.hermes-status span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hermes-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9ca3af;
+  flex: 0 0 auto;
+}
+
+.hermes-status.ok {
+  border-color: #b9d8c7;
+  background: #f7fbf8;
+  color: #276749;
+}
+
+.hermes-status.ok::before {
+  background: #2f855a;
+}
+
+.hermes-status.bad {
+  border-color: #f0c2c2;
+  background: #fff8f8;
+  color: #9b2c2c;
+}
+
+.hermes-status.bad::before {
+  background: #c53030;
+}
+
+.hermes-status.checking::before {
+  background: #2f5d9f;
+}
+
+.hermes-status button {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
 .eyebrow {
   margin: 0 0 6px;
-  color: var(--muted);
+  color: var(--section-color, var(--muted));
   font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 h1,
@@ -133,16 +198,51 @@ h3 {
 }
 
 .app-shell {
-  padding: 22px 34px 34px;
+  display: grid;
+  gap: 26px;
+  padding: 26px 34px 42px;
 }
 
 .fold-section {
-  margin-bottom: 18px;
-  border: 1px solid var(--line);
+  position: relative;
+  border: 1px solid #cfd8e3;
   border-radius: 8px;
   background: #fff;
   box-shadow: var(--shadow);
   overflow: hidden;
+}
+
+.fold-section::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 7px;
+  background: var(--section-color, var(--green));
+  z-index: 2;
+}
+
+.fold-section[data-fold-section="p0"] {
+  --section-color: var(--section-p0);
+  --section-bg: #f3faf6;
+  --section-head: #edf7f1;
+}
+
+.fold-section[data-fold-section="entry"] {
+  --section-color: var(--section-entry);
+  --section-bg: #f3f7fd;
+  --section-head: #edf4fb;
+}
+
+.fold-section[data-fold-section="schedule"] {
+  --section-color: var(--section-schedule);
+  --section-bg: #fbf7f1;
+  --section-head: #f7efe4;
+}
+
+.fold-section[data-fold-section="dashboard"] {
+  --section-color: var(--section-dashboard);
+  --section-bg: #f7f5fb;
+  --section-head: #f0edf8;
 }
 
 .fold-header {
@@ -153,12 +253,50 @@ h3 {
   justify-content: space-between;
   gap: 16px;
   min-height: 76px;
-  padding: 16px 20px;
+  padding: 18px 22px 18px 28px;
   border: 0;
   border-radius: 0;
-  background: #fbfcfd;
+  background: var(--section-head, #fbfcfd);
   color: var(--ink);
   text-align: left;
+}
+
+.fold-header > div {
+  position: relative;
+  padding-left: 46px;
+}
+
+.fold-header > div::before {
+  content: "模块";
+  position: absolute;
+  left: 0;
+  top: 1px;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--section-color, var(--green));
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fold-section[data-fold-section="p0"] .fold-header > div::before {
+  content: "P0";
+}
+
+.fold-section[data-fold-section="entry"] .fold-header > div::before {
+  content: "录";
+}
+
+.fold-section[data-fold-section="schedule"] .fold-header > div::before {
+  content: "排";
+}
+
+.fold-section[data-fold-section="dashboard"] .fold-header > div::before {
+  content: "看";
 }
 
 .fold-header::after {
@@ -188,8 +326,9 @@ h3 {
 }
 
 .fold-body {
-  padding: 18px;
+  padding: 22px;
   border-top: 1px solid var(--line);
+  background: var(--section-bg, #fff);
 }
 
 .fold-section.collapsed .fold-body {
@@ -202,29 +341,37 @@ h3 {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid #d8d2e6;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(113, 97, 168, .06);
 }
 
 .entry-panel {
   margin-bottom: 18px;
   padding: 18px;
-  border: 1px solid var(--line);
+  border: 1px solid #cdd9e8;
   border-radius: 8px;
   background: #fff;
+  box-shadow: 0 8px 22px rgba(46, 95, 159, .07);
 }
 
 .ai-panel {
   margin-bottom: 0;
   padding: 18px;
-  border: 1px solid var(--line);
+  border: 1px solid #cdd9e8;
   border-radius: 8px;
   background: #fff;
+  box-shadow: 0 8px 22px rgba(46, 95, 159, .07);
 }
 
 .schedule-panel {
   padding: 18px;
-  border: 1px solid var(--line);
+  border: 1px solid #e3d2bb;
   border-radius: 8px;
   background: #fff;
+  box-shadow: 0 8px 22px rgba(154, 91, 24, .07);
 }
 
 .schedule-grid {
@@ -237,9 +384,9 @@ h3 {
   display: grid;
   gap: 12px;
   padding: 16px;
-  border: 1px solid var(--line);
+  border: 1px solid #e4d7c5;
   border-radius: 8px;
-  background: #fbfcfd;
+  background: #fffdf9;
 }
 
 .schedule-card h3 {
@@ -467,22 +614,23 @@ h3 {
 }
 
 .p0-section .fold-body {
-  background: #f8faf8;
+  display: grid;
+  gap: 18px;
 }
 
 .p0-dashboard {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 16px;
 }
 
 .p0-metric {
   min-height: 96px;
   padding: 16px;
-  border: 1px solid #d4dfd7;
+  border: 1px solid #c7dccf;
   border-radius: 8px;
   background: #fff;
+  box-shadow: 0 6px 18px rgba(37, 111, 90, .06);
 }
 
 .p0-metric span {
@@ -504,11 +652,11 @@ h3 {
 .p0-followup-panel {
   display: grid;
   gap: 12px;
-  margin-bottom: 16px;
   padding: 16px;
-  border: 1px solid #d4dfd7;
+  border: 1px solid #c7dccf;
   border-radius: 8px;
   background: #fff;
+  box-shadow: 0 8px 22px rgba(37, 111, 90, .07);
 }
 
 .p0-followup-panel .section-title {
@@ -587,12 +735,14 @@ h3 {
 }
 
 .p0-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
   padding: 16px;
-  border: 1px solid var(--line);
+  border: 1px solid #d3ded8;
   border-radius: 8px;
   background: #fff;
+  box-shadow: 0 8px 22px rgba(37, 111, 90, .06);
 }
 
 .p0-card-head {
@@ -600,6 +750,10 @@ h3 {
   align-items: start;
   justify-content: space-between;
   gap: 12px;
+  margin: -16px -16px 0;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e3ece6;
+  background: #f8fcf9;
 }
 
 .p0-card-head h3 {
@@ -625,6 +779,7 @@ h3 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  flex: 1;
 }
 
 .p0-form label {
@@ -639,6 +794,7 @@ h3 {
 .p0-actions {
   display: flex;
   gap: 8px;
+  margin-top: auto;
 }
 
 .quick-date-row {
@@ -683,8 +839,18 @@ h3 {
   color: var(--ink);
 }
 
+.p0-form > button {
+  margin-top: auto;
+}
+
 .p0-records {
   grid-column: 1 / -1;
+  border-color: #cdd8e6;
+}
+
+.p0-records .p0-card-head {
+  background: #f7f9fc;
+  border-bottom-color: #dfe7f0;
 }
 
 .p0-record-filters {
@@ -927,6 +1093,19 @@ h3 {
 .knowledge-path {
   margin-bottom: 12px;
   color: var(--muted);
+}
+
+.import-help {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #d9e6f5;
+  border-radius: 8px;
+  background: #f6f9fd;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .upload-row {
@@ -1303,14 +1482,18 @@ textarea:focus {
   grid-template-columns: 360px minmax(0, 1fr);
   gap: 18px;
   align-items: start;
+  padding: 18px;
+  border: 1px solid #d8d2e6;
+  border-radius: 8px;
+  background: #fff;
 }
 
 .student-list,
 .detail-panel {
   background: var(--panel);
-  border: 1px solid var(--line);
+  border: 1px solid #d8d2e6;
   border-radius: 8px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 22px rgba(113, 97, 168, .08);
 }
 
 .student-list {
@@ -1324,6 +1507,30 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
+  min-height: 42px;
+}
+
+.entry-panel > .section-title,
+.ai-panel > .section-title,
+.schedule-card > .section-title,
+.student-ledger-section .section-title,
+.message-section .section-title,
+.growth-section .section-title {
+  margin: -18px -18px 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfd;
+}
+
+.entry-panel > .section-title,
+.ai-panel > .section-title {
+  background: #f7faff;
+  border-bottom-color: #dce6f3;
+}
+
+.schedule-card > .section-title {
+  background: #fff8ed;
+  border-bottom-color: #eadcc8;
 }
 
 .list-head {
@@ -1749,6 +1956,7 @@ li {
   .summary-strip,
   .p0-dashboard,
   .p0-workflow,
+  .p0-form,
   .p0-record-columns,
   .student-ledger-summary,
   .student-ledger-grid,
@@ -1764,8 +1972,42 @@ li {
   }
 
   .student-form .wide,
+  .p0-form .wide,
   .lesson-form .wide {
     grid-column: auto;
+  }
+
+  .p0-section .fold-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .p0-followup-panel {
+    order: 1;
+  }
+
+  .p0-workflow {
+    order: 2;
+  }
+
+  .p0-dashboard {
+    order: 3;
+  }
+
+  .p0-workflow > .p0-card:nth-child(1) {
+    order: 1;
+  }
+
+  .p0-workflow > .p0-card:nth-child(3) {
+    order: 2;
+  }
+
+  .p0-workflow > .p0-card:nth-child(2) {
+    order: 3;
+  }
+
+  .p0-workflow > .p0-records {
+    order: 4;
   }
 
   .recommend-controls,
@@ -1783,15 +2025,82 @@ li {
   }
 
   .student-picker-modal {
-    padding: 12px;
+    place-items: stretch;
+    padding: 0;
   }
 
   .student-picker-dialog {
-    max-height: calc(100vh - 24px);
+    width: 100%;
+    height: 100dvh;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .student-picker-head {
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .student-picker-search {
+    align-items: stretch;
+  }
+
+  .student-picker-search input {
+    min-height: 46px;
+  }
+
+  .student-picker-list {
+    padding-right: 0;
+  }
+
+  .student-picker-actions {
+    position: sticky;
+    bottom: 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    background: #fff;
+  }
+
+  .student-picker-actions button {
+    width: 100%;
+    min-height: 44px;
   }
 
   .student-picker-tags {
     justify-content: flex-start;
+  }
+
+  .p0-card {
+    min-height: auto;
+  }
+
+  .p0-card-head {
+    align-items: flex-start;
+  }
+
+  .p0-actions,
+  .record-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .p0-actions button,
+  .record-actions button,
+  .p0-record-list button,
+  .p0-followup-list button {
+    flex: 1;
+  }
+
+  .p0-record-list article,
+  .p0-followup-list article {
+    align-items: stretch;
+  }
+
+  .p0-record-list article > div,
+  .p0-followup-list article > div {
+    min-width: 0;
   }
 
   .app-shell,
@@ -1802,6 +2111,90 @@ li {
 
   .student-list-inner {
     max-height: 340px;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    gap: 16px;
+    padding-top: 18px;
+    padding-bottom: 16px;
+  }
+
+  .summary-strip {
+    gap: 8px;
+  }
+
+  .summary-strip div,
+  .p0-metric {
+    min-width: 0;
+    min-height: 76px;
+    padding: 11px 12px;
+  }
+
+  .summary-strip span,
+  .p0-metric span {
+    font-size: 21px;
+  }
+
+  .app-shell {
+    padding-top: 14px;
+  }
+
+  .fold-body {
+    padding: 12px;
+  }
+
+  .p0-followup-panel,
+  .p0-card {
+    padding: 13px;
+  }
+
+  .p0-form {
+    gap: 12px;
+  }
+
+  .p0-form input,
+  .p0-form select,
+  .p0-form textarea,
+  .student-picker-trigger {
+    min-height: 46px;
+  }
+
+  .quick-date-row {
+    align-items: stretch;
+  }
+
+  .quick-date-row span {
+    width: 100%;
+  }
+
+  .quick-date-row button {
+    flex: 1 1 72px;
+    min-height: 36px;
+  }
+
+  .p0-record-filters input,
+  .p0-record-filters select,
+  .p0-record-filters button {
+    width: 100%;
+  }
+
+  .p0-record-list article {
+    padding: 12px;
+  }
+
+  .student-picker-dialog {
+    padding: 14px;
+  }
+
+  .student-picker-option {
+    grid-template-columns: 28px minmax(0, 1fr);
+    min-height: 72px;
+  }
+
+  .student-picker-tags {
+    grid-column: 2;
   }
 }
 
