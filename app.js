@@ -7,6 +7,11 @@ const state = {
   recommendations: [],
   p0Records: loadP0Records(),
   selectedTeacherDates: new Set(),
+  studentPicker: {
+    targetId: "",
+    query: "",
+    selectedIds: new Set()
+  },
   lookupTimer: null,
   selectedId: null,
   filter: "all",
@@ -118,12 +123,69 @@ function paymentText(student) {
   return student.paymentStatus || "已缴清";
 }
 
+function studentSelectLabel(student) {
+  if (!student) return "";
+  const debt = Number(student.debtAmount || 0);
+  const debtText = debt > 0 ? ` · 欠 ${currency.format(debt)}` : "";
+  return `${student.name} · ${student.course || "未填课程"} · ${student.teacher || "未分配老师"} · 剩 ${student.lessonsLeft ?? 0} 节${debtText}`;
+}
+
+function studentSearchText(student) {
+  return [
+    student.name,
+    student.course,
+    student.teacher,
+    student.paymentStatus,
+    student.debtAmount,
+    student.lessonsLeft,
+    student.lastContact,
+    student.status
+  ].map(value => String(value || "").toLowerCase()).join(" ");
+}
+
+function getStudentOptionsSource() {
+  const byId = new Map();
+  [...state.students, ...(state.scheduleMeta?.students || [])].forEach(student => {
+    if (student?.id !== undefined) byId.set(String(student.id), { ...byId.get(String(student.id)), ...student });
+  });
+  return [...byId.values()].sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "zh-CN"));
+}
+
+function selectedStudentsFor(select) {
+  if (!select) return [];
+  const selectedValues = new Set([...select.selectedOptions].map(option => String(option.value)));
+  return getStudentOptionsSource().filter(student => selectedValues.has(String(student.id)));
+}
+
+function syncStudentPickerButton(select) {
+  if (!select) return;
+  const field = select.closest(".student-picker-field");
+  const button = field?.querySelector(".student-picker-trigger");
+  const label = field?.querySelector(".student-picker-label");
+  const meta = field?.querySelector(".student-picker-meta");
+  if (!button || !label || !meta) return;
+  const selected = selectedStudentsFor(select);
+  const isMultiple = select.multiple;
+  label.textContent = selected.length
+    ? (isMultiple ? `已选择 ${selected.length} 位学员` : selected[0].name)
+    : (field.dataset.placeholder || "选择学员");
+  meta.textContent = selected.length
+    ? (isMultiple ? selected.map(student => student.name).slice(0, 4).join("、") + (selected.length > 4 ? "…" : "") : studentSelectLabel(selected[0]))
+    : "点击后搜索姓名、课程、老师、欠费状态";
+  button.classList.toggle("has-value", selected.length > 0);
+}
+
+function syncStudentPickerButtons() {
+  document.querySelectorAll(".student-picker-native").forEach(syncStudentPickerButton);
+}
+
 function renderP0Options() {
   const studentOptions = state.students.map(student => `<option value="${student.id}">${student.name} · 剩余 ${student.lessonsLeft} 课时</option>`).join("");
   ["p0AttendanceStudent", "p0FinanceStudent", "p0CommunicationStudent"].forEach(id => {
     const select = document.getElementById(id);
     if (select) select.innerHTML = id === "p0FinanceStudent" ? `<option value="">不关联学员</option>${studentOptions}` : studentOptions;
   });
+  syncStudentPickerButtons();
 }
 
 function renderP0Dashboard(summary = null) {
@@ -288,6 +350,87 @@ function initQuickLessonDefaults() {
   if (form?.date && !form.date.value) form.date.value = todayValue();
 }
 
+function openStudentPicker(targetId) {
+  const select = document.getElementById(targetId);
+  const modal = document.getElementById("studentPickerModal");
+  if (!select || !modal) return;
+  state.studentPicker.targetId = targetId;
+  state.studentPicker.query = "";
+  state.studentPicker.selectedIds = new Set([...select.selectedOptions].map(option => String(option.value)).filter(Boolean));
+  const field = select.closest(".student-picker-field");
+  document.getElementById("studentPickerTitle").textContent = field?.dataset.title || "选择学员";
+  document.getElementById("studentPickerSearch").value = "";
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  renderStudentPickerModal();
+  window.setTimeout(() => document.getElementById("studentPickerSearch")?.focus(), 0);
+}
+
+function closeStudentPicker() {
+  const modal = document.getElementById("studentPickerModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function renderStudentPickerModal() {
+  const select = document.getElementById(state.studentPicker.targetId);
+  const list = document.getElementById("studentPickerList");
+  const count = document.getElementById("studentPickerCount");
+  if (!select || !list || !count) return;
+  const query = state.studentPicker.query.trim().toLowerCase();
+  const students = getStudentOptionsSource().filter(student => !query || studentSearchText(student).includes(query));
+  count.textContent = `${students.length} 人`;
+  if (!students.length) {
+    list.innerHTML = `<p class="empty-state">没有匹配的学员</p>`;
+    return;
+  }
+  list.innerHTML = students.map(student => {
+    const checked = state.studentPicker.selectedIds.has(String(student.id));
+    const debt = Number(student.debtAmount || 0);
+    return `
+      <button type="button" class="student-picker-option ${checked ? "selected" : ""}" data-student-option="${student.id}">
+        <span class="student-picker-check">${checked ? "✓" : ""}</span>
+        <span class="student-picker-main">
+          <strong>${student.name}</strong>
+          <small>${student.course || "未填课程"} · ${student.teacher || "未分配老师"} · 剩 ${student.lessonsLeft ?? 0} 节</small>
+        </span>
+        <span class="student-picker-tags">
+          <em class="${debt > 0 ? "debt" : ""}">${debt > 0 ? `欠 ${currency.format(debt)}` : (student.paymentStatus || "已缴清")}</em>
+          <em>${student.riskLevel?.text || student.status || "未评估"}</em>
+        </span>
+      </button>
+    `;
+  }).join("");
+}
+
+function toggleStudentPickerSelection(studentId) {
+  const select = document.getElementById(state.studentPicker.targetId);
+  if (!select) return;
+  const key = String(studentId);
+  if (select.multiple) {
+    state.studentPicker.selectedIds.has(key) ? state.studentPicker.selectedIds.delete(key) : state.studentPicker.selectedIds.add(key);
+  } else {
+    state.studentPicker.selectedIds = new Set([key]);
+  }
+  renderStudentPickerModal();
+}
+
+function applyStudentPickerSelection() {
+  const select = document.getElementById(state.studentPicker.targetId);
+  if (!select) return;
+  const selected = state.studentPicker.selectedIds;
+  [...select.options].forEach(option => { option.selected = selected.has(String(option.value)); });
+  syncStudentPickerButton(select);
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+  closeStudentPicker();
+}
+
+function clearStudentPickerSelection() {
+  state.studentPicker.selectedIds.clear();
+  renderStudentPickerModal();
+}
+
 function applyQuickClassSelection() {
   if (!state.scheduleMeta) return;
   const classId = Number(document.getElementById("quickLessonClass").value);
@@ -300,6 +443,7 @@ function applyQuickClassSelection() {
   [...studentSelect.options].forEach(option => {
     option.selected = (classItem.studentIds || []).map(Number).includes(Number(option.value));
   });
+  syncStudentPickerButton(studentSelect);
 }
 
 async function createP0Record(collection, payload) {
@@ -483,6 +627,7 @@ function renderScheduleOptions() {
   document.getElementById("quickLessonRoom").innerHTML = state.scheduleMeta.rooms.map(room => `<option value="${room.id}">${room.name} · ${room.capacity || "-"}人</option>`).join("");
   document.getElementById("quickLessonStudents").innerHTML = studentOptions;
   initQuickLessonDefaults();
+  syncStudentPickerButtons();
 
   renderCourseTypes();
   renderTeachers();
@@ -879,6 +1024,7 @@ async function createClass(form) {
   await api("/api/schedule/classes", { method: "POST", body: JSON.stringify(body) });
   form.reset();
   await loadScheduleMeta();
+  syncStudentPickerButtons();
   showToast("\u73ed\u7ea7\u5df2\u65b0\u589e");
 }
 
@@ -937,6 +1083,7 @@ async function createQuickLesson(form) {
     const data = await api("/api/schedule/lessons", { method: "POST", body: JSON.stringify(body) });
     state.lessons = [...state.lessons, data.lesson].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
     await Promise.all([loadScheduleMeta(), loadLessons()]);
+    syncStudentPickerButtons();
     showToast("快速课表已生成");
   } catch (error) {
     if (String(error.message || "").includes("冲突")) {
@@ -973,6 +1120,40 @@ function bindEvents() {
   document.getElementById("markAllNotificationsButton").addEventListener("click", () => markAllNotificationsRead().catch(error => showToast(error.message)));
   document.getElementById("notificationList").addEventListener("click", event => { const button = event.target.closest("[data-read-notification]"); if (button) markNotificationRead(button.dataset.readNotification).catch(error => showToast(error.message)); });
 
+  document.body.addEventListener("click", event => {
+    const openButton = event.target.closest("[data-open-student-picker]");
+    if (openButton) {
+      openStudentPicker(openButton.dataset.openStudentPicker);
+      return;
+    }
+    if (event.target.closest("[data-close-student-picker]")) {
+      closeStudentPicker();
+      return;
+    }
+    const optionButton = event.target.closest("[data-student-option]");
+    if (optionButton) {
+      toggleStudentPickerSelection(optionButton.dataset.studentOption);
+      return;
+    }
+    if (event.target.closest("[data-apply-student-picker]")) {
+      applyStudentPickerSelection();
+      return;
+    }
+    if (event.target.closest("[data-clear-student-picker]")) {
+      clearStudentPickerSelection();
+    }
+  });
+  document.getElementById("studentPickerSearch").addEventListener("input", event => {
+    state.studentPicker.query = event.target.value;
+    renderStudentPickerModal();
+  });
+  document.getElementById("studentPickerModal").addEventListener("click", event => {
+    if (event.target.id === "studentPickerModal") closeStudentPicker();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeStudentPicker();
+  });
+
   document.getElementById("p0AttendanceForm").addEventListener("submit", event => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -1003,7 +1184,11 @@ function bindEvents() {
     const message = document.getElementById("messageBox").value.trim();
     if (!message) return showToast("请先在学员详情中生成话术");
     const student = selectedStudent();
-    if (student) document.getElementById("p0CommunicationStudent").value = student.id;
+    if (student) {
+      const select = document.getElementById("p0CommunicationStudent");
+      select.value = student.id;
+      syncStudentPickerButton(select);
+    }
     document.getElementById("p0CommunicationContent").value = message;
     showToast("已把当前 Hermes 话术带入沟通记录");
   });

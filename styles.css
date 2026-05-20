@@ -323,6 +323,10 @@ h3 {
   padding: 8px;
 }
 
+.quick-student-picker {
+  grid-row: span 2;
+}
+
 .quick-force {
   display: flex;
   align-items: center;
@@ -861,6 +865,184 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(46, 95, 159, .12);
 }
 
+.student-picker-field {
+  position: relative;
+  display: grid;
+  min-width: 0;
+}
+
+.student-picker-native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.student-picker-trigger {
+  width: 100%;
+  min-height: 42px;
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+}
+
+.student-picker-trigger.has-value {
+  border-color: #b7cbe5;
+  background: #f5f8fc;
+}
+
+.student-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.student-picker-meta {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-picker-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: none;
+  place-items: center;
+  padding: 24px;
+  background: rgba(28, 36, 48, .36);
+}
+
+.student-picker-modal.open {
+  display: grid;
+}
+
+.student-picker-dialog {
+  width: min(760px, 100%);
+  max-height: min(760px, calc(100vh - 48px));
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.student-picker-head,
+.student-picker-search,
+.student-picker-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.student-picker-head button,
+.student-picker-actions button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.student-picker-search input {
+  flex: 1;
+}
+
+.student-picker-search span {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.student-picker-list {
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.student-picker-option {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: var(--ink);
+  text-align: left;
+}
+
+.student-picker-option.selected {
+  border-color: var(--blue);
+  background: #eef4ff;
+}
+
+.student-picker-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--blue);
+  font-weight: 800;
+}
+
+.student-picker-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.student-picker-main small {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-picker-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.student-picker-tags em {
+  padding: 4px 7px;
+  border-radius: 8px;
+  background: #eef3ef;
+  color: var(--green);
+  font-style: normal;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.student-picker-tags em.debt {
+  background: #fff1f1;
+  color: var(--red);
+}
+
 .filter-row,
 .tone-switch,
 .action-row {
@@ -1328,11 +1510,27 @@ li {
   }
 
   .recommend-controls,
+  .student-picker-head,
+  .student-picker-search,
+  .student-picker-actions,
+  .student-picker-option,
   .compact-item,
   .recommendation-card {
     align-items: stretch;
     grid-template-columns: 1fr;
     flex-direction: column;
+  }
+
+  .student-picker-modal {
+    padding: 12px;
+  }
+
+  .student-picker-dialog {
+    max-height: calc(100vh - 24px);
+  }
+
+  .student-picker-tags {
+    justify-content: flex-start;
   }
 
   .app-shell,

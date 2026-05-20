@@ -70,7 +70,7 @@
             </div>
             <form id="p0AttendanceForm" class="p0-form">
               <label>上课日期<input name="date" type="date" required></label>
-              <label>学员<select name="studentId" id="p0AttendanceStudent" required></select></label>
+              <label>学员<div class="student-picker-field" data-title="选择课消学员" data-placeholder="选择学员"><select name="studentId" id="p0AttendanceStudent" class="student-picker-native" required></select><button type="button" class="student-picker-trigger" data-open-student-picker="p0AttendanceStudent"><span class="student-picker-label">选择学员</span><small class="student-picker-meta">点击后搜索姓名、课程、老师</small></button></div></label>
               <label>课程/班级<input name="course" placeholder="例如：少儿创意美术"></label>
               <label>老师<input name="teacher" placeholder="例如：周老师"></label>
               <label>考勤状态<select name="status"><option value="到课">到课</option><option value="请假">请假</option><option value="旷课">旷课</option><option value="补课">补课</option><option value="试听">试听</option></select></label>
@@ -92,7 +92,7 @@
               <label>日期<input name="date" type="date" required></label>
               <label>收支类型<select name="direction"><option value="income">收入</option><option value="expense">支出</option></select></label>
               <label>项目<select name="category"><option value="续费">续费</option><option value="新报名">新报名</option><option value="试听转化">试听转化</option><option value="材料费">材料费</option><option value="老师课酬">老师课酬</option><option value="房租">房租</option><option value="营销">营销</option><option value="退款">退款</option><option value="其他">其他</option></select></label>
-              <label>关联学员<select name="studentId" id="p0FinanceStudent"></select></label>
+              <label>关联学员<div class="student-picker-field" data-title="选择关联学员" data-placeholder="不关联学员"><select name="studentId" id="p0FinanceStudent" class="student-picker-native"></select><button type="button" class="student-picker-trigger" data-open-student-picker="p0FinanceStudent"><span class="student-picker-label">不关联学员</span><small class="student-picker-meta">点击后搜索姓名、课程、老师</small></button></div></label>
               <label>金额<input name="amount" type="number" min="0" value="3980"></label>
               <label>购买课时<input name="lessons" type="number" min="0" step="0.5" value="24"></label>
               <label>支付方式<select name="paymentMethod"><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="现金">现金</option><option value="银行转账">银行转账</option><option value="其他">其他</option></select></label>
@@ -111,7 +111,7 @@
             </div>
             <form id="p0CommunicationForm" class="p0-form">
               <label>沟通日期<input name="date" type="date" required></label>
-              <label>学员<select name="studentId" id="p0CommunicationStudent" required></select></label>
+              <label>学员<div class="student-picker-field" data-title="选择沟通学员" data-placeholder="选择学员"><select name="studentId" id="p0CommunicationStudent" class="student-picker-native" required></select><button type="button" class="student-picker-trigger" data-open-student-picker="p0CommunicationStudent"><span class="student-picker-label">选择学员</span><small class="student-picker-meta">点击后搜索姓名、课程、老师</small></button></div></label>
               <label>场景<select name="scenario"><option value="续费提醒">续费提醒</option><option value="课堂反馈">课堂反馈</option><option value="请假沟通">请假沟通</option><option value="缺勤跟进">缺勤跟进</option><option value="转介绍">转介绍</option><option value="问题处理">问题处理</option><option value="日常维护">日常维护</option></select></label>
               <label>方式<select name="channel"><option value="微信">微信</option><option value="电话">电话</option><option value="面谈">面谈</option><option value="群聊">群聊</option><option value="其他">其他</option></select></label>
               <label>下次跟进<input name="nextFollowUp" type="date"></label>
@@ -270,7 +270,7 @@
                 <select name="courseTypeId" id="classCourseType"></select>
                 <select name="teacherId" id="classTeacher"></select>
                 <input name="capacity" type="number" min="1" value="10" placeholder="班级容量">
-                <select name="studentIds" id="classStudents" multiple></select>
+                <div class="student-picker-field student-picker-wide" data-title="选择班级学员" data-placeholder="选择班级学员"><select name="studentIds" id="classStudents" class="student-picker-native" multiple></select><button type="button" class="student-picker-trigger" data-open-student-picker="classStudents"><span class="student-picker-label">选择班级学员</span><small class="student-picker-meta">点击后搜索并多选学员</small></button></div>
                 <button class="primary" type="submit">新增班级</button>
               </form>
               <div id="classList" class="compact-list"></div>
@@ -288,7 +288,7 @@
             <section class="schedule-card">
               <h3>4. 学生可上课时间</h3>
               <form id="studentAvailabilityForm" class="mini-form">
-                <select name="studentId" id="availabilityStudent"></select>
+                <div class="student-picker-field" data-title="选择可上课学员" data-placeholder="选择学员"><select name="studentId" id="availabilityStudent" class="student-picker-native"></select><button type="button" class="student-picker-trigger" data-open-student-picker="availabilityStudent"><span class="student-picker-label">选择学员</span><small class="student-picker-meta">点击后搜索姓名、课程、老师</small></button></div>
                 <select name="dayOfWeek"><option value="1">周一</option><option value="2">周二</option><option value="3">周三</option><option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option></select>
                 <input name="startTime" type="time" value="10:00"><input name="endTime" type="time" value="12:00">
                 <button class="primary" type="submit">保存学生时间</button>
@@ -303,7 +303,7 @@
               <select name="courseId" id="quickLessonCourse"></select>
               <select name="teacherId" id="quickLessonTeacher"></select>
               <select name="roomId" id="quickLessonRoom"></select>
-              <select name="studentIds" id="quickLessonStudents" multiple></select>
+              <div class="student-picker-field quick-student-picker" data-title="选择本次上课学员" data-placeholder="选择上课学员"><select name="studentIds" id="quickLessonStudents" class="student-picker-native" multiple></select><button type="button" class="student-picker-trigger" data-open-student-picker="quickLessonStudents"><span class="student-picker-label">选择上课学员</span><small class="student-picker-meta">点击后搜索并多选学员</small></button></div>
               <input name="date" type="date" required>
               <input name="startTime" type="time" value="10:00" required>
               <input name="endTime" type="time" value="">
@@ -343,6 +343,23 @@
   </main>
 
   <aside id="notificationDrawer" class="notification-drawer" aria-label="通知中心"><div class="drawer-head"><div><p class="eyebrow">通知服务</p><h2>跟进提醒</h2></div><button id="closeNotificationButton" type="button">关闭</button></div><div class="drawer-actions"><button id="triggerRiskNotificationsButton" class="primary" type="button">生成高风险提醒</button><button id="markAllNotificationsButton" type="button">全部已读</button></div><div id="notificationList" class="notification-list"></div></aside>
+  <div id="studentPickerModal" class="student-picker-modal" aria-hidden="true">
+    <section class="student-picker-dialog" role="dialog" aria-modal="true" aria-labelledby="studentPickerTitle">
+      <div class="student-picker-head">
+        <div><p class="eyebrow">学员检索</p><h2 id="studentPickerTitle">选择学员</h2></div>
+        <button type="button" data-close-student-picker>关闭</button>
+      </div>
+      <div class="student-picker-search">
+        <input id="studentPickerSearch" type="search" placeholder="输入姓名、课程、老师、缴费状态">
+        <span id="studentPickerCount">0 人</span>
+      </div>
+      <div id="studentPickerList" class="student-picker-list"></div>
+      <div class="student-picker-actions">
+        <button type="button" data-clear-student-picker>清空选择</button>
+        <button class="primary" type="button" data-apply-student-picker>确定选择</button>
+      </div>
+    </section>
+  </div>
   <div id="toast" class="toast" role="status"></div>
   <script src="./app.js"></script>
 </body>
