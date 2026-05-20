@@ -6,6 +6,13 @@ const state = {
   lessons: [],
   recommendations: [],
   p0Records: loadP0Records(),
+  p0Filters: {
+    studentId: "",
+    startDate: "",
+    endDate: "",
+    status: "active",
+    query: ""
+  },
   selectedTeacherDates: new Set(),
   studentPicker: {
     targetId: "",
@@ -181,9 +188,13 @@ function syncStudentPickerButtons() {
 
 function renderP0Options() {
   const studentOptions = state.students.map(student => `<option value="${student.id}">${student.name} · 剩余 ${student.lessonsLeft} 课时</option>`).join("");
-  ["p0AttendanceStudent", "p0FinanceStudent", "p0CommunicationStudent"].forEach(id => {
+  ["p0AttendanceStudent", "p0FinanceStudent", "p0CommunicationStudent", "p0RecordStudentFilter"].forEach(id => {
     const select = document.getElementById(id);
-    if (select) select.innerHTML = id === "p0FinanceStudent" ? `<option value="">不关联学员</option>${studentOptions}` : studentOptions;
+    if (select) {
+      const previousValue = select.value;
+      select.innerHTML = ["p0FinanceStudent", "p0RecordStudentFilter"].includes(id) ? `<option value="">全部学员</option>${studentOptions}` : studentOptions;
+      if ([...select.options].some(option => option.value === previousValue)) select.value = previousValue;
+    }
   });
   syncStudentPickerButtons();
 }
@@ -242,6 +253,55 @@ function recordSnippet(item, type) {
   }
   const action = item.status === "待跟进" ? `<button type="button" data-complete-communication="${item.id}">完成</button>` : "";
   return `<div><strong>${item.date} · ${item.studentName || studentNameById(item.studentId)}</strong><small>${item.scenario} · ${item.channel} · ${item.status}</small></div>${action}`;
+}
+
+function recordSearchText(item, type) {
+  return [
+    type,
+    item.date,
+    item.studentName || studentNameById(item.studentId),
+    item.course,
+    item.teacher,
+    item.status,
+    item.category,
+    item.direction,
+    item.paymentMethod,
+    item.scenario,
+    item.channel,
+    item.note,
+    item.content
+  ].map(value => String(value || "").toLowerCase()).join(" ");
+}
+
+function filterP0Records(records, type) {
+  const filters = state.p0Filters;
+  const query = filters.query.trim().toLowerCase();
+  return records.filter(item => {
+    const date = item.date || "";
+    if (filters.studentId && String(item.studentId || "") !== String(filters.studentId)) return false;
+    if (filters.startDate && date < filters.startDate) return false;
+    if (filters.endDate && date > filters.endDate) return false;
+    if (filters.status === "active" && item.status === "作废") return false;
+    if (filters.status === "voided" && item.status !== "作废") return false;
+    if (filters.status === "pending" && item.status !== "待跟进") return false;
+    if (filters.status === "done" && !["已完成", "已反馈"].includes(String(item.status || "")) && !item.feedback) return false;
+    if (query && !recordSearchText(item, type).includes(query)) return false;
+    return true;
+  });
+}
+
+function renderP0FilterSummary(filtered) {
+  const summary = document.getElementById("p0FilterSummary");
+  if (!summary) return;
+  const attendanceLessons = filtered.attendance.reduce((sum, item) => sum + Number(item.consumedLessons ?? item.lessons ?? 0), 0);
+  const income = filtered.finance.filter(item => item.direction === "income" && item.status !== "作废").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const expense = filtered.finance.filter(item => item.direction === "expense" && item.status !== "作废").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  summary.innerHTML = `
+    <span>课消 ${filtered.attendance.length} 条 / ${attendanceLessons} 课时</span>
+    <span>收入 ${currency.format(income)}</span>
+    <span>支出 ${currency.format(expense)}</span>
+    <span>沟通 ${filtered.communications.length} 条</span>
+  `;
 }
 
 function renderP0RecordList(id, records, type) {
@@ -333,9 +393,15 @@ function resetAiRiskSection() {
 
 function renderP0Records(summary = null) {
   renderP0Dashboard(summary);
-  renderP0RecordList("p0AttendanceList", state.p0Records.attendance, "attendance");
-  renderP0RecordList("p0FinanceList", state.p0Records.finance, "finance");
-  renderP0RecordList("p0CommunicationList", state.p0Records.communications, "communication");
+  const filtered = {
+    attendance: filterP0Records(state.p0Records.attendance, "attendance"),
+    finance: filterP0Records(state.p0Records.finance, "finance"),
+    communications: filterP0Records(state.p0Records.communications, "communication")
+  };
+  renderP0FilterSummary(filtered);
+  renderP0RecordList("p0AttendanceList", filtered.attendance, "attendance");
+  renderP0RecordList("p0FinanceList", filtered.finance, "finance");
+  renderP0RecordList("p0CommunicationList", filtered.communications, "communication");
 }
 
 function initP0Forms() {
@@ -343,6 +409,33 @@ function initP0Forms() {
     const form = document.getElementById(id);
     if (form?.date && !form.date.value) form.date.value = todayValue();
   });
+}
+
+function syncP0FiltersFromControls() {
+  const studentSelect = document.getElementById("p0RecordStudentFilter");
+  state.p0Filters = {
+    studentId: studentSelect?.value || "",
+    startDate: document.getElementById("p0FilterStart")?.value || "",
+    endDate: document.getElementById("p0FilterEnd")?.value || "",
+    status: document.getElementById("p0FilterStatus")?.value || "active",
+    query: document.getElementById("p0RecordSearch")?.value || ""
+  };
+  renderP0Records();
+}
+
+function resetP0Filters() {
+  const studentSelect = document.getElementById("p0RecordStudentFilter");
+  if (studentSelect) {
+    studentSelect.value = "";
+    syncStudentPickerButton(studentSelect);
+  }
+  ["p0FilterStart", "p0FilterEnd", "p0RecordSearch"].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = "";
+  });
+  const status = document.getElementById("p0FilterStatus");
+  if (status) status.value = "active";
+  syncP0FiltersFromControls();
 }
 
 function initQuickLessonDefaults() {
@@ -1193,6 +1286,12 @@ function bindEvents() {
     showToast("已把当前 Hermes 话术带入沟通记录");
   });
   document.getElementById("p0RefreshButton").addEventListener("click", () => loadP0Data().then(() => showToast("P0 业务记录已刷新")).catch(error => showToast(error.message)));
+  ["p0FilterStart", "p0FilterEnd", "p0FilterStatus", "p0RecordSearch"].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.addEventListener("input", syncP0FiltersFromControls);
+  });
+  document.getElementById("p0RecordStudentFilter").addEventListener("change", syncP0FiltersFromControls);
+  document.getElementById("p0ResetFiltersButton").addEventListener("click", resetP0Filters);
   document.querySelector(".p0-records").addEventListener("click", event => {
     const attendanceButton = event.target.closest("[data-void-attendance]");
     const feedbackButton = event.target.closest("[data-feedback-attendance]");

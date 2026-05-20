@@ -576,6 +576,38 @@ h3 {
   grid-column: 1 / -1;
 }
 
+.p0-record-filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.2fr) repeat(3, minmax(130px, .7fr)) minmax(220px, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.p0-record-filters button {
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.p0-filter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.p0-filter-summary span {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .p0-record-columns {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1510,6 +1542,7 @@ li {
   }
 
   .recommend-controls,
+  .p0-record-filters,
   .student-picker-head,
   .student-picker-search,
   .student-picker-actions,

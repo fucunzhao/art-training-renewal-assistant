@@ -132,6 +132,15 @@
               </div>
               <button id="p0RefreshButton" type="button">刷新记录</button>
             </div>
+            <div class="p0-record-filters">
+              <div class="student-picker-field" data-title="筛选业务记录学员" data-placeholder="全部学员"><select id="p0RecordStudentFilter" class="student-picker-native"></select><button type="button" class="student-picker-trigger" data-open-student-picker="p0RecordStudentFilter"><span class="student-picker-label">全部学员</span><small class="student-picker-meta">按学员筛选台账</small></button></div>
+              <input id="p0FilterStart" type="date" aria-label="开始日期">
+              <input id="p0FilterEnd" type="date" aria-label="结束日期">
+              <select id="p0FilterStatus" aria-label="记录状态"><option value="active">有效记录</option><option value="all">全部记录</option><option value="voided">只看作废</option><option value="pending">待跟进</option><option value="done">已完成/已反馈</option></select>
+              <input id="p0RecordSearch" type="search" placeholder="搜索课程、老师、项目、内容">
+              <button id="p0ResetFiltersButton" type="button">清空筛选</button>
+            </div>
+            <div id="p0FilterSummary" class="p0-filter-summary"></div>
             <div class="p0-record-columns">
               <div>
                 <h4>课消考勤</h4>
