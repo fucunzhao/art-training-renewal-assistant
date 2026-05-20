@@ -223,6 +223,7 @@ function studentKnowledgeFromStudent(student) {
     debtAmount: Number(student.debtAmount ?? 0),
     prepaidLessons: Number(student.prepaidLessons ?? student.lessonsLeft ?? 0),
     lessonsLeft: Number(student.lessonsLeft ?? student.prepaidLessons ?? 0),
+    lessonsLeftSource: student.lessonsLeftSource || "\u7cfb\u7edf\u8ba1\u7b97",
     daysToEnd: Number(student.daysToEnd ?? 30),
     renewalValue: Number(student.renewalValue ?? student.paidAmount ?? 0),
     lastContact: student.lastContact || "\u672a\u8054\u7cfb",
@@ -760,8 +761,15 @@ async function createStudent(body, students) {
   student.paymentStatus = ["\u5df2\u7f34\u6e05", "\u90e8\u5206\u7f34\u8d39", "\u6b20\u8d39"].includes(body.paymentStatus) ? body.paymentStatus : (student.paymentStatus || "\u5df2\u7f34\u6e05");
   student.debtAmount = toNumber(body.debtAmount, toNumber(student.debtAmount, 0));
   if (student.debtAmount > 0 && student.paymentStatus === "\u5df2\u7f34\u6e05") student.paymentStatus = "\u6b20\u8d39";
-  student.prepaidLessons = toNumber(body.prepaidLessons, toNumber(student.prepaidLessons, toNumber(student.lessonsLeft, 0)));
-  student.lessonsLeft = toNumber(body.lessonsLeft, student.prepaidLessons);
+  const previousPrepaidLessons = toNumber(student.prepaidLessons, 0);
+  const nextPrepaidLessons = toNumber(body.prepaidLessons, previousPrepaidLessons || toNumber(student.lessonsLeft, 0));
+  const prepaidDelta = existing ? nextPrepaidLessons - previousPrepaidLessons : nextPrepaidLessons;
+  const hasManualLessonsLeft = body.lessonsLeft !== undefined && body.lessonsLeft !== null && String(body.lessonsLeft).trim() !== "";
+  student.prepaidLessons = nextPrepaidLessons;
+  student.lessonsLeft = hasManualLessonsLeft
+    ? toNumber(body.lessonsLeft, toNumber(student.lessonsLeft, nextPrepaidLessons))
+    : Math.max(0, toNumber(student.lessonsLeft, 0) + prepaidDelta);
+  student.lessonsLeftSource = hasManualLessonsLeft ? "\u4eba\u5de5\u4fee\u6b63" : "\u7cfb\u7edf\u8ba1\u7b97";
   student.daysToEnd = toNumber(body.daysToEnd, toNumber(student.daysToEnd, 30));
   student.absentRate = toNumber(body.absentRate, toNumber(student.absentRate, 0));
   student.parentReplies = toNumber(body.parentReplies, toNumber(student.parentReplies, 0));
@@ -807,6 +815,7 @@ function createAttendanceRecord(body, students, user) {
   };
 
   student.lessonsLeft = afterLessons;
+  student.lessonsLeftSource = "\u7cfb\u7edf\u8ba1\u7b97";
   student.daysToEnd = Math.max(0, toNumber(student.daysToEnd, 0) - (consumedLessons > 0 ? 1 : 0));
   student.updatedAt = new Date().toISOString();
 
@@ -844,6 +853,7 @@ function createFinanceRecord(body, students, user) {
 
   if (student && direction === "income" && lessons > 0) {
     student.lessonsLeft = afterLessons;
+    student.lessonsLeftSource = "\u7cfb\u7edf\u8ba1\u7b97";
     student.prepaidLessons = toNumber(student.prepaidLessons, 0) + lessons;
     student.paidAmount = toNumber(student.paidAmount, 0) + amount;
     student.debtAmount = Math.max(0, toNumber(student.debtAmount, 0) - amount);
@@ -890,6 +900,7 @@ function voidAttendanceRecord(record, students, user, reason = "") {
   const student = students.find(item => item.id === Number(record.studentId));
   if (student && Number(record.consumedLessons || 0) > 0) {
     student.lessonsLeft = toNumber(student.lessonsLeft, 0) + Number(record.consumedLessons || 0);
+    student.lessonsLeftSource = "\u7cfb\u7edf\u8ba1\u7b97";
     student.daysToEnd = toNumber(student.daysToEnd, 0) + 1;
     student.updatedAt = new Date().toISOString();
   }
@@ -909,6 +920,7 @@ function voidFinanceRecord(record, students, user, reason = "") {
   const student = record.studentId ? students.find(item => item.id === Number(record.studentId)) : null;
   if (student && record.direction === "income" && Number(record.lessons || 0) > 0) {
     student.lessonsLeft = Math.max(0, toNumber(student.lessonsLeft, 0) - Number(record.lessons || 0));
+    student.lessonsLeftSource = "\u7cfb\u7edf\u8ba1\u7b97";
     student.prepaidLessons = Math.max(0, toNumber(student.prepaidLessons, 0) - Number(record.lessons || 0));
     student.paidAmount = Math.max(0, toNumber(student.paidAmount, 0) - Number(record.amount || 0));
     student.updatedAt = new Date().toISOString();
@@ -2037,6 +2049,7 @@ async function handleApi(req, res, url) {
       if (!student) continue;
       const beforeLessons = Number(student.lessonsLeft || 0);
       student.lessonsLeft = Math.max(0, Number(student.lessonsLeft || 0) - 1);
+      student.lessonsLeftSource = "\u7cfb\u7edf\u8ba1\u7b97";
       consumed.push({ studentId: student.id, studentName: student.name, beforeLessons, lessonsLeft: student.lessonsLeft });
     }
 
@@ -2263,6 +2276,7 @@ async function handleApi(req, res, url) {
     if (body.status === "\u5df2\u7eed\u8d39") {
       student.status = "\u5df2\u7eed\u8d39";
       student.lessonsLeft = 24;
+      student.lessonsLeftSource = "\u7cfb\u7edf\u8ba1\u7b97";
       student.daysToEnd = 80;
       student.paymentStatus = "\u5df2\u7f34\u6e05";
       student.debtAmount = 0;

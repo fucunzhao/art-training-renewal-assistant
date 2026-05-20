@@ -655,7 +655,9 @@ function renderDetail() {
   riskBadge.textContent = student.riskLevel.text;
   riskBadge.className = `risk-badge ${student.riskLevel.className}`;
   document.getElementById("riskScore").textContent = student.riskScore;
-  document.getElementById("lessonsLeft").textContent = student.lessonsLeft;
+  const lessonsLeftNode = document.getElementById("lessonsLeft");
+  lessonsLeftNode.textContent = student.lessonsLeft;
+  lessonsLeftNode.title = student.lessonsLeftSource || "系统计算";
   document.getElementById("daysToEnd").textContent = student.daysToEnd;
   document.getElementById("renewalValue").textContent = currency.format(student.renewalValue);
   document.getElementById("renewalValue").insertAdjacentHTML("beforeend", Number(student.debtAmount || 0) > 0 ? `<small class="metric-debt">欠 ${currency.format(student.debtAmount)}</small>` : "");
@@ -680,10 +682,11 @@ async function copyText(text, label) {
 function fillStudentForm(record) {
   const form = document.getElementById("studentForm");
   if (!record || !form) return;
-  const fields = ["age", "teacher", "course", "paidAt", "paidAmount", "paymentStatus", "debtAmount", "prepaidLessons", "lessonsLeft", "daysToEnd", "absentRate", "parentReplies", "homeworkMissed", "lastContact"];
+  const fields = ["age", "teacher", "course", "paidAt", "paidAmount", "paymentStatus", "debtAmount", "prepaidLessons", "daysToEnd", "absentRate", "parentReplies", "homeworkMissed", "lastContact"];
   fields.forEach(name => {
     if (form[name] && record[name] !== undefined && record[name] !== null && record[name] !== "") form[name].value = record[name];
   });
+  if (form.lessonsLeft) form.lessonsLeft.value = "";
   if (form.renewalValue && record.renewalValue) form.renewalValue.value = record.renewalValue;
   const latest = [...(record.evidence || [])].reverse().find(item => item.type !== "image") || null;
   if (latest) {
@@ -727,7 +730,6 @@ async function createStudent(form) {
   const body = Object.fromEntries(new FormData(form).entries());
   body.evidenceImage = await evidenceImagePayload(form.evidenceImage.files?.[0]);
   body.renewalValue = body.paidAmount;
-  if (!body.lessonsLeft && body.prepaidLessons) body.lessonsLeft = body.prepaidLessons;
   const data = await api("/api/students", { method: "POST", body: JSON.stringify(body) });
   state.students = data.isUpdate
     ? state.students.map(item => item.id === data.student.id ? data.student : item)
@@ -741,7 +743,7 @@ async function createStudent(form) {
   form.paymentStatus.value = "已缴清";
   form.debtAmount.value = 0;
   form.prepaidLessons.value = 24;
-  form.lessonsLeft.value = 24;
+  form.lessonsLeft.value = "";
   form.daysToEnd.value = 60;
   form.absentRate.value = 0;
   form.parentReplies.value = 1;
