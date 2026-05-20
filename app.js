@@ -976,6 +976,63 @@ function selectedStudent() {
   return state.students.find(item => item.id === state.selectedId);
 }
 
+function focusFoldSection(name) {
+  const section = document.querySelector(`[data-fold-section="${name}"]`);
+  if (!section) return;
+  section.classList.remove("collapsed");
+  section.querySelector(".fold-header")?.setAttribute("aria-expanded", "true");
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function setSelectValue(selectId, value) {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  select.value = value ?? "";
+  syncStudentPickerButton(select);
+  select.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function focusP0Form(formId) {
+  const form = document.getElementById(formId);
+  if (!form) return;
+  window.setTimeout(() => {
+    form.scrollIntoView({ behavior: "smooth", block: "center" });
+    form.classList.add("focus-pulse");
+    window.setTimeout(() => form.classList.remove("focus-pulse"), 1300);
+  }, 180);
+}
+
+function quickFillStudentAction(action) {
+  const student = selectedStudent();
+  if (!student) return showToast("请先选择学员");
+  focusFoldSection("p0");
+  if (action === "attendance") {
+    const form = document.getElementById("p0AttendanceForm");
+    setSelectValue("p0AttendanceStudent", student.id);
+    if (form.course && !form.course.value) form.course.value = student.course || "";
+    if (form.teacher && !form.teacher.value) form.teacher.value = student.teacher || "";
+    if (form.lessons && !form.lessons.value) form.lessons.value = 1;
+    focusP0Form("p0AttendanceForm");
+    showToast(`已带入 ${student.name} 的课消表单`);
+    return;
+  }
+  if (action === "finance") {
+    const form = document.getElementById("p0FinanceForm");
+    setSelectValue("p0FinanceStudent", student.id);
+    if (form.direction) form.direction.value = "income";
+    if (form.category) form.category.value = "续费";
+    if (form.amount && Number(student.debtAmount || 0) > 0) form.amount.value = student.debtAmount;
+    focusP0Form("p0FinanceForm");
+    showToast(`已带入 ${student.name} 的缴费表单`);
+    return;
+  }
+  if (action === "communication") {
+    setSelectValue("p0CommunicationStudent", student.id);
+    focusP0Form("p0CommunicationForm");
+    showToast(`已带入 ${student.name} 的沟通表单`);
+  }
+}
+
 async function renderMessage(student) {
   const data = await api(`/api/students/${student.id}/message?tone=${state.tone}`);
   document.getElementById("messageBox").value = data.message;
@@ -1439,6 +1496,8 @@ function bindEvents() {
   document.getElementById("markContactedButton").addEventListener("click", () => updateStatus("已跟进"));
   document.getElementById("markRenewedButton").addEventListener("click", () => updateStatus("已续费"));
   document.querySelector(".detail-panel").addEventListener("click", event => {
+    const quickAction = event.target.closest("[data-student-quick-action]");
+    if (quickAction) quickFillStudentAction(quickAction.dataset.studentQuickAction);
     if (event.target.closest("#generateRiskButton")) generateAiRiskAssessment();
   });
   document.getElementById("studentForm").addEventListener("submit", event => { event.preventDefault(); createStudent(event.currentTarget).catch(error => showToast(error.message)); });
