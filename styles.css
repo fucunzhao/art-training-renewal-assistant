@@ -689,6 +689,36 @@ h3 {
   color: var(--muted);
 }
 
+.student-ledger-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.student-ledger-summary div {
+  min-height: 76px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.student-ledger-summary span {
+  overflow: hidden;
+  font-size: 18px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.student-ledger-summary small {
+  color: var(--muted);
+}
+
 .student-ledger-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -722,6 +752,13 @@ h3 {
 .student-ledger-list small {
   color: var(--muted);
   line-height: 1.45;
+}
+
+.student-ledger-list p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .ai-risk-section {
@@ -1524,6 +1561,7 @@ li {
   .p0-dashboard,
   .p0-workflow,
   .p0-record-columns,
+  .student-ledger-summary,
   .student-ledger-grid,
   .workspace,
   .schedule-grid,

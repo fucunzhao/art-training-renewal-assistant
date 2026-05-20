@@ -315,13 +315,14 @@ function renderP0RecordList(id, records, type) {
 }
 
 function ensureStudentLedgerSection() {
-  if (document.getElementById("studentAttendanceLedger")) return;
+  if (document.getElementById("studentLedgerSummary")) return;
   const growthSection = document.querySelector(".growth-section");
   if (!growthSection) return;
   const section = document.createElement("div");
   section.className = "student-ledger-section";
   section.innerHTML = `
     <div class="section-title"><h3>业务记录</h3><small>课消、缴费与家校沟通历史</small></div>
+    <div id="studentLedgerSummary" class="student-ledger-summary"></div>
     <div class="student-ledger-grid">
       <div><h4>课消记录</h4><div id="studentAttendanceLedger" class="student-ledger-list"></div></div>
       <div><h4>缴费记录</h4><div id="studentFinanceLedger" class="student-ledger-list"></div></div>
@@ -357,6 +358,30 @@ function renderLedgerList(id, records, emptyText, renderItem) {
   container.innerHTML = records.slice(0, 6).map(renderItem).join("");
 }
 
+function renderStudentLedgerSummary(attendance, finance, communications) {
+  const container = document.getElementById("studentLedgerSummary");
+  if (!container) return;
+  const activeAttendance = attendance.filter(item => item.status !== "作废");
+  const activeFinance = finance.filter(item => item.status !== "作废");
+  const consumedLessons = activeAttendance.reduce((sum, item) => sum + Number(item.consumedLessons || 0), 0);
+  const income = activeFinance.filter(item => item.direction === "income").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const expense = activeFinance.filter(item => item.direction === "expense").reduce((sum, item) => sum + Number(item.amount || 0), 0);
+  const pendingCommunications = communications.filter(item => item.status === "待跟进").length;
+  const latestDates = [...attendance, ...finance, ...communications].map(item => item.date).filter(Boolean).sort().reverse();
+  container.innerHTML = `
+    <div><span>${activeAttendance.length}</span><small>有效课消记录</small></div>
+    <div><span>${consumedLessons}</span><small>累计课消课时</small></div>
+    <div><span>${currency.format(income - expense)}</span><small>净收入</small></div>
+    <div><span>${pendingCommunications}</span><small>待跟进沟通</small></div>
+    <div><span>${latestDates[0] || "-"}</span><small>最近业务日期</small></div>
+  `;
+}
+
+function ledgerNote(text) {
+  const value = String(text || "").trim();
+  return value ? `<p>${value}</p>` : "";
+}
+
 function renderStudentLedger(student) {
   ensureStudentLedgerSection();
   if (!student) return;
@@ -364,23 +389,28 @@ function renderStudentLedger(student) {
   const attendance = state.p0Records.attendance.filter(item => String(item.studentId) === studentId);
   const finance = state.p0Records.finance.filter(item => String(item.studentId) === studentId);
   const communications = state.p0Records.communications.filter(item => String(item.studentId) === studentId);
+  renderStudentLedgerSummary(attendance, finance, communications);
 
   renderLedgerList("studentAttendanceLedger", attendance, "暂无课消记录", item => `
     <article class="${item.status === "作废" ? "voided" : ""}">
       <strong>${item.date} · ${item.status}${item.feedback ? " · 已生成反馈" : ""}</strong>
-      <small>${item.course || "未填课程"} · 扣 ${item.consumedLessons || 0} 课时 · 剩 ${item.afterLessons ?? "-"} 课时</small>
+      <small>${item.course || "未填课程"} · ${item.teacher || "未填老师"} · 扣 ${item.consumedLessons || 0} 课时</small>
+      <small>课前 ${item.beforeLessons ?? "-"} 节 · 课后 ${item.afterLessons ?? "-"} 节</small>
+      ${ledgerNote(item.note)}
     </article>
   `);
   renderLedgerList("studentFinanceLedger", finance, "暂无缴费记录", item => `
     <article class="${item.status === "作废" ? "voided" : ""}">
       <strong>${item.date} · ${item.direction === "income" ? "收入" : "支出"} ${currency.format(item.amount || 0)}</strong>
-      <small>${item.category} · ${item.paymentMethod || "未填方式"} · ${item.status || "有效"}</small>
+      <small>${item.category} · ${item.paymentMethod || "未填方式"} · 课时 ${item.lessons || 0} · ${item.status || "有效"}</small>
+      ${ledgerNote(item.note)}
     </article>
   `);
   renderLedgerList("studentCommunicationLedger", communications, "暂无沟通记录", item => `
-    <article>
+    <article class="${item.status === "作废" ? "voided" : ""}">
       <strong>${item.date} · ${item.scenario}</strong>
       <small>${item.channel} · ${item.status}${item.nextFollowUp ? ` · 下次 ${item.nextFollowUp}` : ""}</small>
+      ${ledgerNote(item.content)}
     </article>
   `);
 }
