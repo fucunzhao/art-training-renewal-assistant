@@ -110,6 +110,12 @@ function todayValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function addDaysValue(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + Number(days || 0));
+  return date.toISOString().slice(0, 10);
+}
+
 function isSameMonth(dateText) {
   const now = new Date();
   const date = new Date(`${dateText}T00:00:00`);
@@ -237,6 +243,57 @@ function renderP0Dashboard(summary = null) {
     const element = document.getElementById(id);
     if (element) element.textContent = value;
   });
+}
+
+function followUpPriority(record) {
+  if (record.status !== "待跟进") return 9;
+  if (!record.nextFollowUp) return 3;
+  if (record.nextFollowUp < todayValue()) return 0;
+  if (record.nextFollowUp === todayValue()) return 1;
+  return 2;
+}
+
+function followUpLabel(record) {
+  if (!record.nextFollowUp) return "未设置日期";
+  if (record.nextFollowUp < todayValue()) return `逾期 ${record.nextFollowUp}`;
+  if (record.nextFollowUp === todayValue()) return "今日到期";
+  return `计划 ${record.nextFollowUp}`;
+}
+
+function renderP0FollowUpTasks() {
+  const container = document.getElementById("p0FollowUpTasks");
+  const hint = document.getElementById("p0FollowUpHint");
+  if (!container) return;
+  const tasks = state.p0Records.communications
+    .filter(item => item.status === "待跟进")
+    .sort((a, b) => followUpPriority(a) - followUpPriority(b) || String(a.nextFollowUp || "").localeCompare(String(b.nextFollowUp || "")))
+    .slice(0, 6);
+  if (hint) {
+    const overdue = state.p0Records.communications.filter(item => item.status === "待跟进" && item.nextFollowUp && item.nextFollowUp < todayValue()).length;
+    const today = state.p0Records.communications.filter(item => item.status === "待跟进" && item.nextFollowUp === todayValue()).length;
+    hint.textContent = overdue || today ? `逾期 ${overdue} 条，今日 ${today} 条` : "暂无今日到期，保持节奏";
+  }
+  if (!tasks.length) {
+    container.innerHTML = "<p class=\"empty-state\">暂无待跟进沟通</p>";
+    return;
+  }
+  container.innerHTML = tasks.map(item => {
+    const priority = followUpPriority(item);
+    const cls = priority === 0 ? "overdue" : priority === 1 ? "today" : "";
+    return `
+      <article class="${cls}">
+        <div>
+          <strong>${item.studentName || studentNameById(item.studentId)} · ${item.scenario}</strong>
+          <small>${followUpLabel(item)} · ${item.channel || "未填方式"}</small>
+          ${item.content ? `<p>${item.content}</p>` : ""}
+        </div>
+        <span class="record-actions">
+          <button type="button" data-focus-student="${item.studentId}">查看</button>
+          <button type="button" data-complete-communication="${item.id}">完成</button>
+        </span>
+      </article>
+    `;
+  }).join("");
 }
 
 function recordSnippet(item, type) {
@@ -495,6 +552,7 @@ function resetAiRiskSection() {
 
 function renderP0Records(summary = null) {
   renderP0Dashboard(summary);
+  renderP0FollowUpTasks();
   const filtered = currentFilteredP0Records();
   renderP0FilterSummary(filtered);
   renderP0RecordList("p0AttendanceList", filtered.attendance, "attendance");
@@ -534,6 +592,21 @@ function resetP0Filters() {
   const status = document.getElementById("p0FilterStatus");
   if (status) status.value = "active";
   syncP0FiltersFromControls();
+}
+
+function setCommunicationFollowUp(days) {
+  const form = document.getElementById("p0CommunicationForm");
+  if (!form?.nextFollowUp) return;
+  form.nextFollowUp.value = addDaysValue(days);
+  if (form.status) form.status.value = "待跟进";
+  showToast(days === 0 ? "下次跟进已设为今天" : `下次跟进已设为 ${days} 天后`);
+}
+
+function clearCommunicationFollowUp() {
+  const form = document.getElementById("p0CommunicationForm");
+  if (!form?.nextFollowUp) return;
+  form.nextFollowUp.value = "";
+  showToast("已清空下次跟进日期");
 }
 
 function initQuickLessonDefaults() {
@@ -1202,7 +1275,8 @@ async function extractKnowledgeCandidates() {
   const data = await api("/api/knowledge/extract", { method: "POST", body: JSON.stringify({}) });
   state.knowledgeCandidates = data.candidates || [];
   renderKnowledgeCandidates();
-  showToast(`识别到 ${state.knowledgeCandidates.length} 条候选记录`);
+  const summary = data.summary;
+  showToast(summary ? `识别 ${summary.total} 条：新增 ${summary.create}，更新 ${summary.update}，需补充 ${summary.invalid}` : `识别到 ${state.knowledgeCandidates.length} 条候选记录`);
 }
 
 function renderKnowledgeCandidates() {
@@ -1211,11 +1285,21 @@ function renderKnowledgeCandidates() {
     container.innerHTML = "";
     return;
   }
+  const total = state.knowledgeCandidates.length;
+  const createCount = state.knowledgeCandidates.filter(item => item.importAction === "create").length;
+  const updateCount = state.knowledgeCandidates.filter(item => item.importAction === "update").length;
+  const invalidCount = state.knowledgeCandidates.filter(item => item.importAction === "invalid").length;
+  const summary = `<div class="import-summary"><span>共 ${total} 条</span><span>新增 ${createCount}</span><span>更新 ${updateCount}</span><span>需补充 ${invalidCount}</span></div>`;
   container.innerHTML = state.knowledgeCandidates.map((candidate, index) => {
     const missing = candidate.missing?.length ? `<p class="candidate-warning">缺少必填项：${candidate.missing.join("、")}</p>` : "";
     const proof = candidate.proof?.map(item => `${item[0]}：${item[1]}`).join("<br>") || "";
-    return `<label class="candidate-card"><input type="checkbox" data-candidate-index="${index}" ${candidate.missing?.length ? "" : "checked"}><div><strong>${candidate.name || "未识别姓名"}</strong><p>${candidate.course || "未识别课程"} · ${candidate.teacher || "未识别老师"} · 来源：${candidate.source}</p><p>剩 ${candidate.lessonsLeft} 节 · ${candidate.daysToEnd} 天课消 · 续费 ${currency.format(candidate.renewalValue)}</p><p class="candidate-proof">${proof}</p>${missing}</div></label>`;
+    const actionText = candidate.importAction === "update" ? "更新已有" : candidate.importAction === "invalid" ? "需补充" : "新增";
+    const actionClass = candidate.importAction === "update" ? "update" : candidate.importAction === "invalid" ? "invalid" : "create";
+    const lessons = candidate.lessonsLeft === undefined || candidate.lessonsLeft === "" ? `预缴 ${candidate.prepaidLessons ?? 0} 节自动计算` : `剩 ${candidate.lessonsLeft} 节`;
+    const payment = `${candidate.paymentStatus || "已缴清"}${Number(candidate.debtAmount || 0) > 0 ? ` · 欠 ${currency.format(candidate.debtAmount)}` : ""}`;
+    return `<label class="candidate-card ${actionClass}"><input type="checkbox" data-candidate-index="${index}" ${candidate.missing?.length ? "" : "checked"}><div><div class="candidate-title-row"><strong>${candidate.name || "未识别姓名"}</strong><em>${actionText}</em></div><p>${candidate.course || "未识别课程"} · ${candidate.teacher || "未识别老师"} · 来源：${candidate.source}</p><p>${lessons} · 预缴 ${candidate.prepaidLessons ?? 0} 节 · 缴费 ${currency.format(candidate.paidAmount || candidate.renewalValue || 0)} · ${payment}</p><p class="candidate-proof">${proof}</p>${missing}</div></label>`;
   }).join("");
+  container.insertAdjacentHTML("afterbegin", summary);
 }
 
 async function importKnowledgeCandidates() {
@@ -1229,7 +1313,8 @@ async function importKnowledgeCandidates() {
   renderSummary(data.summary);
   render();
   await loadScheduleMeta();
-  showToast(`已导入 ${data.imported.length} 位学员`);
+  const summary = data.importSummary;
+  showToast(summary ? `已导入 ${summary.imported} 条：新增 ${summary.created}，更新 ${summary.updated}，跳过 ${summary.skipped}` : `已导入 ${data.imported.length} 位学员`);
 }
 
 async function triggerRiskNotifications() {
@@ -1428,6 +1513,14 @@ function bindEvents() {
       showToast("家校沟通已保存");
     }).catch(error => showToast(error.message));
   });
+  document.getElementById("p0CommunicationForm").addEventListener("click", event => {
+    const dayButton = event.target.closest("[data-followup-days]");
+    if (dayButton) {
+      setCommunicationFollowUp(Number(dayButton.dataset.followupDays));
+      return;
+    }
+    if (event.target.closest("[data-followup-clear]")) clearCommunicationFollowUp();
+  });
   document.getElementById("p0UseMessageButton").addEventListener("click", () => {
     const message = document.getElementById("messageBox").value.trim();
     if (!message) return showToast("请先在学员详情中生成话术");
@@ -1448,6 +1541,17 @@ function bindEvents() {
   document.getElementById("p0RecordStudentFilter").addEventListener("change", syncP0FiltersFromControls);
   document.getElementById("p0ExportRecordsButton").addEventListener("click", exportP0Records);
   document.getElementById("p0ResetFiltersButton").addEventListener("click", resetP0Filters);
+  document.getElementById("p0FollowUpTasks").addEventListener("click", event => {
+    const focusButton = event.target.closest("[data-focus-student]");
+    const completeButton = event.target.closest("[data-complete-communication]");
+    if (focusButton) {
+      state.selectedId = Number(focusButton.dataset.focusStudent);
+      focusFoldSection("dashboard");
+      render();
+      return;
+    }
+    if (completeButton) applyP0Mutation(`/api/p0/communications/${completeButton.dataset.completeCommunication}/complete`, "沟通记录已完成").catch(error => showToast(error.message));
+  });
   document.querySelector(".p0-records").addEventListener("click", event => {
     const attendanceButton = event.target.closest("[data-void-attendance]");
     const feedbackButton = event.target.closest("[data-feedback-attendance]");

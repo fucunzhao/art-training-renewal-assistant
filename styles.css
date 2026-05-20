@@ -501,6 +501,85 @@ h3 {
   background: #fffaf4;
 }
 
+.p0-followup-panel {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid #d4dfd7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.p0-followup-panel .section-title {
+  margin-bottom: 0;
+}
+
+.p0-followup-panel .section-title h3 {
+  margin-bottom: 0;
+}
+
+.p0-followup-panel .section-title span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.p0-followup-list {
+  display: grid;
+  gap: 8px;
+}
+
+.p0-followup-list article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.p0-followup-list article.overdue {
+  border-color: #f0c2c2;
+  background: #fff8f8;
+}
+
+.p0-followup-list article.today {
+  border-color: #edc9a5;
+  background: #fffaf4;
+}
+
+.p0-followup-list article > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.p0-followup-list small,
+.p0-followup-list p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.p0-followup-list p {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.p0-followup-list button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
 .p0-workflow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -560,6 +639,38 @@ h3 {
 .p0-actions {
   display: flex;
   gap: 8px;
+}
+
+.quick-date-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.quick-date-row span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.quick-date-row button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.quick-date-row button:hover {
+  border-color: var(--blue);
+  color: var(--blue);
 }
 
 .p0-actions button,
@@ -859,6 +970,21 @@ h3 {
   gap: 10px;
 }
 
+.import-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.import-summary span {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfd;
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .candidate-card {
   display: grid;
   grid-template-columns: 24px 1fr;
@@ -869,10 +995,42 @@ h3 {
   background: #fbfcfd;
 }
 
+.candidate-card.create {
+  border-color: #b9d8c7;
+  background: #f7fbf8;
+}
+
+.candidate-card.update {
+  border-color: #b7cbe5;
+  background: #f5f8fc;
+}
+
+.candidate-card.invalid {
+  border-color: #f0c2c2;
+  background: #fff8f8;
+}
+
 .candidate-card input {
   width: 18px;
   height: 18px;
   margin-top: 2px;
+}
+
+.candidate-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.candidate-title-row em {
+  padding: 4px 7px;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-style: normal;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .candidate-card p {
@@ -1616,6 +1774,7 @@ li {
   .student-picker-search,
   .student-picker-actions,
   .student-picker-option,
+  .p0-followup-list article,
   .compact-item,
   .recommendation-card {
     align-items: stretch;

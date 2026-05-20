@@ -6,7 +6,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check app.js && node --check login.js"
+    "check": "node --check server.js && node --check app.js && node --check login.js",
+    "e2e": "node scripts/e2e-check.js"
   },
   "engines": {
     "node": ">=18"

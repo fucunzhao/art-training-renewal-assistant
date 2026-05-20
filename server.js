@@ -1439,44 +1439,120 @@ function extractStudentFromText(content, source) {
   });
 }
 
+function parseCsvLine(line) {
+  const cells = [];
+  let current = "";
+  let quoted = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+    if (char === '"' && quoted && next === '"') {
+      current += '"';
+      i += 1;
+      continue;
+    }
+    if (char === '"') {
+      quoted = !quoted;
+      continue;
+    }
+    if (char === "," && !quoted) {
+      cells.push(current.trim());
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
+function rowValue(row, keys, fallback = "") {
+  for (const key of keys) {
+    const value = row[key];
+    if (value !== undefined && value !== null && String(value).trim() !== "") return String(value).trim();
+  }
+  return fallback;
+}
+
+function normalizePaymentStatus(value) {
+  const text = String(value || "").trim();
+  if (["\u6b20\u8d39", "debt", "unpaid"].includes(text.toLowerCase())) return "\u6b20\u8d39";
+  if (["\u90e8\u5206\u7f34\u8d39", "\u90e8\u5206\u4ed8\u6b3e", "partial"].includes(text.toLowerCase())) return "\u90e8\u5206\u7f34\u8d39";
+  return "\u5df2\u7f34\u6e05";
+}
+
 function parseCsv(content, source) {
   const lines = content.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
   if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(item => item.trim());
+  const headers = parseCsvLine(lines[0]).map(item => item.trim());
   return lines.slice(1).map((line, index) => {
-    const cells = line.split(",").map(item => item.trim());
+    const cells = parseCsvLine(line);
     const row = Object.fromEntries(headers.map((header, cellIndex) => [header, cells[cellIndex] || ""]));
+    const prepaidLessons = rowValue(row, ["prepaidLessons", "\u9884\u7f34\u8bfe\u65f6", "\u9884\u7f34\u8bfe\u7a0b\u8282\u6570", "\u8d2d\u4e70\u8bfe\u65f6"]);
+    const lessonsLeft = rowValue(row, ["lessonsLeft", "\u5269\u4f59\u8bfe\u65f6", "\u5269\u4f59\u8282\u6570"]);
+    const paidAmount = rowValue(row, ["paidAmount", "\u7f34\u8d39\u91d1\u989d", "\u5df2\u7f34\u91d1\u989d", "\u6536\u6b3e\u91d1\u989d"]);
+    const debtAmount = rowValue(row, ["debtAmount", "\u6b20\u8d39\u91d1\u989d", "\u5f85\u6536\u91d1\u989d"]);
     return normalizeCandidate({
       source: `${source}#${index + 1}`,
-      name: row.name || row["\u59d3\u540d"] || row["\u5b66\u5458"],
-      course: row.course || row["\u8bfe\u7a0b"],
-      teacher: row.teacher || row["\u8001\u5e08"] || row["\u6559\u5e08"],
-      lessonsLeft: toNumber(row.lessonsLeft || row["\u5269\u4f59\u8bfe\u65f6"], 4),
-      daysToEnd: toNumber(row.daysToEnd || row["\u5230\u671f\u5929\u6570"], 14),
-      absentRate: toNumber(row.absentRate || row["\u7f3a\u52e4\u7387"], 0),
-      parentReplies: toNumber(row.parentReplies || row["\u5bb6\u957f\u56de\u590d"], 1),
-      homeworkMissed: toNumber(row.homeworkMissed || row["\u4f5c\u4e1a\u7f3a\u4ea4"], 0),
-      renewalValue: toNumber(row.renewalValue || row["\u7eed\u8d39\u91d1\u989d"] || row["\u7f34\u8d39\u91d1\u989d"], 3980),
-      lastContact: row.lastContact || row["\u6700\u8fd1\u8054\u7cfb"] || "\u672a\u8054\u7cfb",
-      proof: [["\u6210\u957f\u8bc1\u636e", row.proof || row["\u6210\u957f\u8bc1\u636e"] || "\u6765\u81ea CSV \u77e5\u8bc6\u5e93\u5bfc\u5165"]]
+      name: rowValue(row, ["name", "\u59d3\u540d", "\u5b66\u5458", "\u5b66\u751f"]),
+      age: rowValue(row, ["age", "\u5e74\u9f84"]),
+      course: rowValue(row, ["course", "\u8bfe\u7a0b", "\u62a5\u540d\u8bfe\u7a0b"]),
+      teacher: rowValue(row, ["teacher", "\u8001\u5e08", "\u6559\u5e08", "\u4e0a\u8bfe\u8001\u5e08"]),
+      paidAt: rowValue(row, ["paidAt", "\u7f34\u8d39\u65f6\u95f4", "\u6536\u6b3e\u65e5\u671f"]),
+      paidAmount: paidAmount === "" ? undefined : toNumber(paidAmount, 0),
+      paymentStatus: normalizePaymentStatus(rowValue(row, ["paymentStatus", "\u7f34\u8d39\u72b6\u6001"])),
+      debtAmount: debtAmount === "" ? 0 : toNumber(debtAmount, 0),
+      prepaidLessons: prepaidLessons === "" ? undefined : toNumber(prepaidLessons, 0),
+      lessonsLeft: lessonsLeft === "" ? undefined : toNumber(lessonsLeft, 0),
+      daysToEnd: toNumber(rowValue(row, ["daysToEnd", "\u5230\u671f\u5929\u6570", "\u9884\u8ba1\u8bfe\u6d88\u5929\u6570"], 14), 14),
+      absentRate: toNumber(rowValue(row, ["absentRate", "\u7f3a\u52e4\u7387"], 0), 0),
+      parentReplies: toNumber(rowValue(row, ["parentReplies", "\u5bb6\u957f\u56de\u590d", "\u56de\u590d\u6b21\u6570"], 1), 1),
+      homeworkMissed: toNumber(rowValue(row, ["homeworkMissed", "\u4f5c\u4e1a\u7f3a\u4ea4"], 0), 0),
+      renewalValue: toNumber(rowValue(row, ["renewalValue", "\u7eed\u8d39\u91d1\u989d", "\u7f34\u8d39\u91d1\u989d"], paidAmount || 3980), 3980),
+      lastContact: rowValue(row, ["lastContact", "\u6700\u8fd1\u8054\u7cfb"], "\u672a\u8054\u7cfb"),
+      proof: [["\u6210\u957f\u8bc1\u636e", rowValue(row, ["proof", "\u6210\u957f\u8bc1\u636e", "\u5907\u6ce8"], "\u6765\u81ea CSV \u77e5\u8bc6\u5e93\u5bfc\u5165")]]
     });
   }).filter(item => item.name);
 }
 
 function normalizeCandidate(candidate) {
+  const hasLessonsLeft = candidate.lessonsLeft !== undefined && candidate.lessonsLeft !== null && String(candidate.lessonsLeft).trim() !== "";
+  const hasPrepaidLessons = candidate.prepaidLessons !== undefined && candidate.prepaidLessons !== null && String(candidate.prepaidLessons).trim() !== "";
+  const paidAmount = toNumber(candidate.paidAmount ?? candidate.renewalValue, 0);
+  const debtAmount = toNumber(candidate.debtAmount, 0);
   return {
     source: candidate.source || "knowledge_base",
     name: String(candidate.name || "").trim(),
+    age: String(candidate.age || "").trim(),
     course: String(candidate.course || "\u5f85\u8bbe\u7f6e\u8bfe\u7a0b").trim(),
     teacher: String(candidate.teacher || "\u5f85\u5206\u914d\u8001\u5e08").trim(),
-    lessonsLeft: toNumber(candidate.lessonsLeft, 4),
+    paidAt: String(candidate.paidAt || "").trim(),
+    paidAmount,
+    paymentStatus: normalizePaymentStatus(candidate.paymentStatus || (debtAmount > 0 ? "\u6b20\u8d39" : "\u5df2\u7f34\u6e05")),
+    debtAmount,
+    prepaidLessons: hasPrepaidLessons ? toNumber(candidate.prepaidLessons, 0) : undefined,
+    lessonsLeft: hasLessonsLeft ? toNumber(candidate.lessonsLeft, 0) : undefined,
     daysToEnd: toNumber(candidate.daysToEnd, 14),
     absentRate: toNumber(candidate.absentRate, 0),
     parentReplies: toNumber(candidate.parentReplies, 1),
     homeworkMissed: toNumber(candidate.homeworkMissed, 0),
-    renewalValue: toNumber(candidate.renewalValue, 3980),
+    renewalValue: toNumber(candidate.renewalValue, paidAmount || 3980),
     lastContact: String(candidate.lastContact || "\u672a\u8054\u7cfb").trim(),
     proof: Array.isArray(candidate.proof) ? candidate.proof : [["\u6210\u957f\u8bc1\u636e", "\u5df2\u4ece\u77e5\u8bc6\u5e93\u91c7\u96c6"]]
+  };
+}
+
+function annotateImportCandidate(candidate, students) {
+  const missing = [];
+  if (!candidate.name) missing.push("\u59d3\u540d");
+  if (!candidate.course || candidate.course === "\u5f85\u8bbe\u7f6e\u8bfe\u7a0b") missing.push("\u8bfe\u7a0b");
+  if (!candidate.teacher || candidate.teacher === "\u5f85\u5206\u914d\u8001\u5e08") missing.push("\u8001\u5e08");
+  const existing = students.find(student => normalizeStudentName(student.name) === normalizeStudentName(candidate.name));
+  return {
+    ...candidate,
+    missing,
+    importAction: missing.length ? "invalid" : (existing ? "update" : "create"),
+    existingStudentId: existing?.id || null
   };
 }
 
@@ -2174,7 +2250,16 @@ async function handleApi(req, res, url) {
     for (const fileName of files) {
       candidates.push(...await extractFromKnowledgeFile(fileName));
     }
-    sendJson(res, 200, { candidates });
+    const annotated = candidates.map(candidate => annotateImportCandidate(candidate, students));
+    sendJson(res, 200, {
+      candidates: annotated,
+      summary: {
+        total: annotated.length,
+        create: annotated.filter(item => item.importAction === "create").length,
+        update: annotated.filter(item => item.importAction === "update").length,
+        invalid: annotated.filter(item => item.importAction === "invalid").length
+      }
+    });
     return;
   }
 
@@ -2182,26 +2267,45 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const candidates = Array.isArray(body.candidates) ? body.candidates : [];
     const imported = [];
+    const skipped = [];
 
     for (const candidate of candidates) {
+      const annotated = annotateImportCandidate(normalizeCandidate(candidate), students);
+      if (annotated.missing.length) {
+        skipped.push({ ...annotated, reason: `\u7f3a\u5c11\u5fc5\u586b\u9879\uff1a${annotated.missing.join("\u3001")}` });
+        continue;
+      }
       const result = await createStudent({
-        ...candidate,
-        proofTitle1: candidate.proof?.[0]?.[0],
-        proofText1: candidate.proof?.[0]?.[1],
-        proofTitle2: candidate.proof?.[1]?.[0],
-        proofText2: candidate.proof?.[1]?.[1],
-        proofTitle3: candidate.proof?.[2]?.[0],
-        proofText3: candidate.proof?.[2]?.[1]
+        ...annotated,
+        proofTitle1: annotated.proof?.[0]?.[0],
+        proofText1: annotated.proof?.[0]?.[1],
+        proofTitle2: annotated.proof?.[1]?.[0],
+        proofText2: annotated.proof?.[1]?.[1],
+        proofTitle3: annotated.proof?.[2]?.[0],
+        proofText3: annotated.proof?.[2]?.[1]
       }, students);
       if (!result.error) {
         if (!result.isUpdate) students.push(result.student);
         await syncStudentKnowledge(result.student);
-        imported.push(enrichStudent(result.student));
+        imported.push({ ...enrichStudent(result.student), importAction: result.isUpdate ? "update" : "create" });
+      } else {
+        skipped.push({ ...annotated, reason: result.error });
       }
     }
 
     await writeStudents(students);
-    sendJson(res, 201, { imported, summary: makeSummary(students) });
+    sendJson(res, 201, {
+      imported,
+      skipped,
+      importSummary: {
+        total: candidates.length,
+        imported: imported.length,
+        skipped: skipped.length,
+        created: imported.filter(item => item.importAction === "create").length,
+        updated: imported.filter(item => item.importAction === "update").length
+      },
+      summary: makeSummary(students)
+    });
     return;
   }
 

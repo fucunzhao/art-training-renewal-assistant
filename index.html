@@ -58,6 +58,13 @@
             <small>待跟进沟通</small>
           </div>
         </section>
+        <section class="p0-followup-panel" aria-label="今日跟进任务">
+          <div class="section-title">
+            <div><p class="eyebrow">今日任务</p><h3>待跟进沟通</h3></div>
+            <span id="p0FollowUpHint">优先处理逾期和今日到期</span>
+          </div>
+          <div id="p0FollowUpTasks" class="p0-followup-list"></div>
+        </section>
 
         <section class="p0-workflow">
           <article class="p0-card">
@@ -115,6 +122,7 @@
               <label>场景<select name="scenario"><option value="续费提醒">续费提醒</option><option value="课堂反馈">课堂反馈</option><option value="请假沟通">请假沟通</option><option value="缺勤跟进">缺勤跟进</option><option value="转介绍">转介绍</option><option value="问题处理">问题处理</option><option value="日常维护">日常维护</option></select></label>
               <label>方式<select name="channel"><option value="微信">微信</option><option value="电话">电话</option><option value="面谈">面谈</option><option value="群聊">群聊</option><option value="其他">其他</option></select></label>
               <label>下次跟进<input name="nextFollowUp" type="date"></label>
+              <div class="quick-date-row wide" aria-label="快捷设置下次跟进日期"><span>快捷跟进</span><button type="button" data-followup-days="0">今天</button><button type="button" data-followup-days="1">明天</button><button type="button" data-followup-days="3">3天后</button><button type="button" data-followup-days="7">7天后</button><button type="button" data-followup-clear>清空</button></div>
               <label>状态<select name="status"><option value="待跟进">待跟进</option><option value="已完成">已完成</option></select></label>
               <label class="wide">沟通内容<textarea name="content" id="p0CommunicationContent" rows="4" placeholder="可手动记录，也可以先在右侧学员详情生成 Hermes 话术后保存"></textarea></label>
               <div class="p0-actions wide">
