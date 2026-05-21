@@ -29,7 +29,7 @@ const state = {
 };
 
 function loadP0Records() {
-  return { attendance: [], finance: [], communications: [] };
+  return { attendance: [], finance: [], communications: [], renewalOrders: [] };
 }
 
 const currency = new Intl.NumberFormat("zh-CN", {
@@ -133,7 +133,8 @@ async function loadP0Data() {
   state.p0Records = {
     attendance: data.attendance || [],
     finance: data.finance || [],
-    communications: data.communications || []
+    communications: data.communications || [],
+    renewalOrders: data.renewalOrders || []
   };
   renderP0Records(data.summary || null);
 }
@@ -526,6 +527,30 @@ function ensureAiRiskSection() {
   insightBand.insertAdjacentElement("afterend", section);
 }
 
+function ensureRenewalOrderSection() {
+  if (document.getElementById("renewalOrderForm")) return;
+  const insightBand = document.querySelector(".insight-band");
+  if (!insightBand) return;
+  const section = document.createElement("div");
+  section.className = "renewal-order-section";
+  section.innerHTML = `
+    <div class="section-title">
+      <div><h3>续费订单</h3><small>意向、收款、课时入账与欠费跟进</small></div>
+    </div>
+    <form id="renewalOrderForm" class="renewal-order-form">
+      <label>续费课程<input name="course" required></label>
+      <label>续费课时<input name="lessons" type="number" min="0.5" step="0.5" value="24" required></label>
+      <label>应收金额<input name="amountDue" type="number" min="1" value="3980" required></label>
+      <label>本次实收<input name="amountPaid" type="number" min="0" value="0"></label>
+      <label>支付方式<select name="paymentMethod"><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="现金">现金</option><option value="银行转账">银行转账</option><option value="其他">其他</option></select></label>
+      <label class="wide">备注<textarea name="note" rows="2" placeholder="例如：春季班续费，尾款明天补齐"></textarea></label>
+      <button class="primary wide" type="submit">创建续费订单</button>
+    </form>
+    <div id="renewalOrderList" class="renewal-order-list"></div>
+  `;
+  insightBand.insertAdjacentElement("afterend", section);
+}
+
 function renderLedgerList(id, records, emptyText, renderItem) {
   const container = document.getElementById(id);
   if (!container) return;
@@ -560,6 +585,40 @@ function ledgerNote(text) {
   return value ? `<p>${value}</p>` : "";
 }
 
+function renderRenewalOrders(student) {
+  ensureRenewalOrderSection();
+  const form = document.getElementById("renewalOrderForm");
+  const list = document.getElementById("renewalOrderList");
+  if (!student || !form || !list) return;
+  if (!form.course.value) form.course.value = student.course || "";
+  if (form.amountDue && Number(student.debtAmount || 0) > 0) form.amountDue.value = student.debtAmount;
+  const orders = (state.p0Records.renewalOrders || [])
+    .filter(item => String(item.studentId) === String(student.id))
+    .sort((a, b) => String(b.createdAt || b.date || "").localeCompare(String(a.createdAt || a.date || "")));
+  if (!orders.length) {
+    list.innerHTML = "<p class=\"empty-state\">暂无续费订单</p>";
+    return;
+  }
+  list.innerHTML = orders.slice(0, 5).map(order => {
+    const debt = Number(order.debtAmount || 0);
+    const action = debt > 0 && order.status !== "已取消"
+      ? `<form class="renewal-payment-form" data-renewal-payment="${order.id}">
+          <input name="amount" type="number" min="1" max="${debt}" value="${debt}" aria-label="收款金额">
+          <select name="paymentMethod" aria-label="支付方式"><option value="微信">微信</option><option value="支付宝">支付宝</option><option value="现金">现金</option><option value="银行转账">银行转账</option><option value="其他">其他</option></select>
+          <button type="submit">记录收款</button>
+        </form>`
+      : "";
+    return `<article>
+      <div>
+        <strong>${order.date} · ${order.course} · ${order.status}</strong>
+        <small>${order.lessons} 课时 · 应收 ${currency.format(order.amountDue || 0)} · 已收 ${currency.format(order.amountPaid || 0)} · 欠费 ${currency.format(debt)}</small>
+        ${ledgerNote(order.note)}
+      </div>
+      ${action}
+    </article>`;
+  }).join("");
+}
+
 function renderStudentLedger(student) {
   ensureStudentLedgerSection();
   if (!student) return;
@@ -567,6 +626,7 @@ function renderStudentLedger(student) {
   const attendance = state.p0Records.attendance.filter(item => String(item.studentId) === studentId);
   const finance = state.p0Records.finance.filter(item => String(item.studentId) === studentId);
   const communications = state.p0Records.communications.filter(item => String(item.studentId) === studentId);
+  renderRenewalOrders(student);
   renderStudentLedgerSummary(attendance, finance, communications);
 
   renderLedgerList("studentAttendanceLedger", attendance, "暂无课消记录", item => `
@@ -766,6 +826,30 @@ async function createP0Record(collection, payload) {
     communications: "/api/p0/communications"
   }[collection];
   const data = await api(endpoint, { method: "POST", body: JSON.stringify(payload) });
+  await loadP0Data();
+  if (data.students) {
+    state.students = data.students;
+    if (data.businessSummary) renderSummary(data.businessSummary);
+    renderP0Options();
+    render();
+  }
+  return data;
+}
+
+async function createRenewalOrder(payload) {
+  const data = await api("/api/renewal-orders", { method: "POST", body: JSON.stringify(payload) });
+  await loadP0Data();
+  if (data.students) {
+    state.students = data.students;
+    if (data.businessSummary) renderSummary(data.businessSummary);
+    renderP0Options();
+    render();
+  }
+  return data;
+}
+
+async function recordRenewalPayment(orderId, payload) {
+  const data = await api(`/api/renewal-orders/${orderId}/payments`, { method: "POST", body: JSON.stringify(payload) });
   await loadP0Data();
   if (data.students) {
     state.students = data.students;
@@ -1711,6 +1795,30 @@ function bindEvents() {
     const quickAction = event.target.closest("[data-student-quick-action]");
     if (quickAction) quickFillStudentAction(quickAction.dataset.studentQuickAction);
     if (event.target.closest("#generateRiskButton")) generateAiRiskAssessment();
+  });
+  document.querySelector(".detail-panel").addEventListener("submit", event => {
+    if (event.target.id === "renewalOrderForm") {
+      event.preventDefault();
+      const student = selectedStudent();
+      if (!student) return showToast("请先选择学员");
+      const body = Object.fromEntries(new FormData(event.target).entries());
+      body.studentId = student.id;
+      body.date = todayValue();
+      createRenewalOrder(body).then(() => {
+        event.target.note.value = "";
+        showToast("续费订单已创建，收款和欠费已同步");
+      }).catch(error => showToast(error.message));
+      return;
+    }
+    const paymentForm = event.target.closest("[data-renewal-payment]");
+    if (paymentForm) {
+      event.preventDefault();
+      const body = Object.fromEntries(new FormData(paymentForm).entries());
+      body.date = todayValue();
+      recordRenewalPayment(paymentForm.dataset.renewalPayment, body)
+        .then(() => showToast("续费收款已记录，课时和欠费已同步"))
+        .catch(error => showToast(error.message));
+    }
   });
   document.getElementById("studentForm").addEventListener("submit", event => { event.preventDefault(); createStudent(event.currentTarget).catch(error => showToast(error.message)); });
   document.getElementById("studentNameInput").addEventListener("input", event => { clearTimeout(state.lookupTimer); state.lookupTimer = setTimeout(() => lookupStudentByName(event.target.value).catch(error => showToast(error.message)), 350); });

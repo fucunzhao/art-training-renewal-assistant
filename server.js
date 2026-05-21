@@ -19,6 +19,7 @@ const SCHEDULE_FILE = path.join(DATA_DIR, "schedule.json");
 const ATTENDANCE_FILE = path.join(DATA_DIR, "attendance.json");
 const FINANCE_FILE = path.join(DATA_DIR, "finance.json");
 const COMMUNICATIONS_FILE = path.join(DATA_DIR, "communications.json");
+const RENEWAL_ORDERS_FILE = path.join(DATA_DIR, "renewal-orders.json");
 const KNOWLEDGE_DIR = path.join(DATA_DIR, "knowledge_base");
 const TEACHERS_KB_FILE = path.join(KNOWLEDGE_DIR, "teachers.json");
 const STUDENTS_KB_FILE = path.join(KNOWLEDGE_DIR, "students.json");
@@ -90,6 +91,7 @@ async function ensureRuntimeStorage() {
   await createRuntimeFileIfMissing(ATTENDANCE_FILE, "[]\n");
   await createRuntimeFileIfMissing(FINANCE_FILE, "[]\n");
   await createRuntimeFileIfMissing(COMMUNICATIONS_FILE, "[]\n");
+  await createRuntimeFileIfMissing(RENEWAL_ORDERS_FILE, "[]\n");
   await copySeedFileIfMissing(SEED_SCHEDULE_FILE, SCHEDULE_FILE, JSON.stringify({
     courseTypes: [],
     classes: [],
@@ -174,6 +176,14 @@ async function readCommunicationRecords() {
 
 async function writeCommunicationRecords(records) {
   await writeJsonArray(COMMUNICATIONS_FILE, records);
+}
+
+async function readRenewalOrders() {
+  return readJsonArray(RENEWAL_ORDERS_FILE);
+}
+
+async function writeRenewalOrders(records) {
+  await writeJsonArray(RENEWAL_ORDERS_FILE, records);
 }
 
 async function readTeachersKnowledge(fallback = []) {
@@ -948,10 +958,12 @@ function createFinanceRecord(body, students, user) {
     createdAt: new Date().toISOString()
   };
 
-  if (student && direction === "income" && lessons > 0) {
-    student.lessonsLeft = afterLessons;
-    student.lessonsLeftSource = "\u7cfb\u7edf\u8ba1\u7b97";
-    student.prepaidLessons = toNumber(student.prepaidLessons, 0) + lessons;
+  if (student && direction === "income") {
+    if (lessons > 0) {
+      student.lessonsLeft = afterLessons;
+      student.lessonsLeftSource = "\u7cfb\u7edf\u8ba1\u7b97";
+      student.prepaidLessons = toNumber(student.prepaidLessons, 0) + lessons;
+    }
     student.paidAmount = toNumber(student.paidAmount, 0) + amount;
     student.debtAmount = Math.max(0, toNumber(student.debtAmount, 0) - amount);
     student.paymentStatus = student.debtAmount > 0 ? "\u90e8\u5206\u7f34\u8d39" : "\u5df2\u7f34\u6e05";
@@ -962,6 +974,159 @@ function createFinanceRecord(body, students, user) {
   }
 
   return { record, student };
+}
+
+function renewalOrderStatus(amountDue, amountPaid) {
+  if (amountPaid <= 0) return "待收款";
+  if (amountPaid < amountDue) return "部分收款";
+  return "已收清";
+}
+
+function syncStudentPaymentStatus(student) {
+  const debt = toNumber(student.debtAmount, 0);
+  student.paymentStatus = debt > 0 ? (toNumber(student.paidAmount, 0) > 0 ? "部分缴费" : "欠费") : "已缴清";
+}
+
+function createRenewalFollowUp(order, student, user) {
+  return {
+    id: 0,
+    date: dateOnly(order.date),
+    studentId: student.id,
+    studentName: student.name,
+    scenario: "续费收款",
+    channel: "微信",
+    nextFollowUp: dateOnly(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()),
+    status: "待跟进",
+    content: `${student.name}续费订单待收款 ${order.debtAmount} 元，请跟进确认付款安排。`,
+    renewalOrderId: order.id,
+    operator: user?.username || "",
+    createdAt: new Date().toISOString()
+  };
+}
+
+function createRenewalOrder(body, students, financeRecords, communicationRecords, user) {
+  const student = students.find(item => item.id === Number(body.studentId));
+  if (!student) return { error: "请选择有效学员" };
+  const amountDue = Math.max(0, toNumber(body.amountDue, 0));
+  const amountPaid = Math.max(0, Math.min(amountDue, toNumber(body.amountPaid, 0)));
+  const lessons = Math.max(0, toNumber(body.lessons, 0));
+  if (!amountDue) return { error: "应收金额必须大于 0" };
+  if (!lessons) return { error: "续费课时必须大于 0" };
+
+  const order = {
+    id: Number(body.id || 0),
+    date: dateOnly(body.date),
+    studentId: student.id,
+    studentName: student.name,
+    course: String(body.course || student.course || "续费课程").trim(),
+    lessons,
+    amountDue,
+    amountPaid: 0,
+    debtAmount: amountDue,
+    status: "待收款",
+    paymentMethod: String(body.paymentMethod || "微信").trim(),
+    note: String(body.note || "").trim(),
+    financeRecordIds: [],
+    lessonsCredited: false,
+    operator: user?.username || "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  student.debtAmount = toNumber(student.debtAmount, 0) + amountDue;
+  student.paymentStatus = amountPaid > 0 ? "部分缴费" : "欠费";
+  student.status = "待跟进";
+  student.renewalValue = amountDue;
+  student.updatedAt = new Date().toISOString();
+
+  const created = { order, student, financeRecord: null, communicationRecord: null };
+  if (amountPaid > 0) {
+    const financeResult = createFinanceRecord({
+      date: order.date,
+      direction: "income",
+      category: "续费",
+      studentId: student.id,
+      amount: amountPaid,
+      lessons,
+      paymentMethod: order.paymentMethod,
+      note: `续费订单收款：${order.course}${order.note ? `；${order.note}` : ""}`
+    }, students, user);
+    if (financeResult.error) return { error: financeResult.error };
+    financeResult.record.id = nextId(financeRecords);
+    financeResult.record.renewalOrderId = order.id;
+    financeRecords.unshift(financeResult.record);
+    order.financeRecordIds.push(financeResult.record.id);
+    order.amountPaid = amountPaid;
+    order.debtAmount = Math.max(0, amountDue - amountPaid);
+    order.status = renewalOrderStatus(order.amountDue, order.amountPaid);
+    order.lessonsCredited = lessons > 0;
+    order.updatedAt = new Date().toISOString();
+    created.financeRecord = financeResult.record;
+  }
+
+  if (order.debtAmount > 0) {
+    student.debtAmount = Math.max(order.debtAmount, toNumber(student.debtAmount, 0));
+    student.paymentStatus = order.amountPaid > 0 ? "部分缴费" : "欠费";
+    const followUp = createRenewalFollowUp(order, student, user);
+    followUp.id = nextId(communicationRecords);
+    communicationRecords.unshift(followUp);
+    created.communicationRecord = followUp;
+  } else {
+    student.debtAmount = Math.max(0, toNumber(student.debtAmount, 0));
+    syncStudentPaymentStatus(student);
+    student.status = "已续费";
+  }
+
+  return created;
+}
+
+function payRenewalOrder(order, body, students, financeRecords, communicationRecords, user) {
+  if (!order) return { error: "续费订单不存在" };
+  if (order.status === "已取消") return { error: "已取消的订单不能收款" };
+  if (order.status === "已收清") return { error: "该订单已收清" };
+  const student = students.find(item => item.id === Number(order.studentId));
+  if (!student) return { error: "订单关联学员不存在" };
+  const amount = Math.max(0, toNumber(body.amount, 0));
+  if (!amount) return { error: "收款金额必须大于 0" };
+  const receivable = Math.max(0, toNumber(order.amountDue, 0) - toNumber(order.amountPaid, 0));
+  const paidNow = Math.min(amount, receivable);
+  const lessons = order.lessonsCredited ? 0 : Math.max(0, toNumber(order.lessons, 0));
+  const financeResult = createFinanceRecord({
+    date: body.date || new Date().toISOString(),
+    direction: "income",
+    category: "续费",
+    studentId: student.id,
+    amount: paidNow,
+    lessons,
+    paymentMethod: body.paymentMethod || order.paymentMethod || "微信",
+    note: `续费订单补收：${order.course}${body.note ? `；${body.note}` : ""}`
+  }, students, user);
+  if (financeResult.error) return { error: financeResult.error };
+  financeResult.record.id = nextId(financeRecords);
+  financeResult.record.renewalOrderId = order.id;
+  financeRecords.unshift(financeResult.record);
+
+  order.amountPaid = toNumber(order.amountPaid, 0) + paidNow;
+  order.debtAmount = Math.max(0, toNumber(order.amountDue, 0) - order.amountPaid);
+  order.status = renewalOrderStatus(order.amountDue, order.amountPaid);
+  order.paymentMethod = String(body.paymentMethod || order.paymentMethod || "微信").trim();
+  order.lessonsCredited = order.lessonsCredited || lessons > 0;
+  order.financeRecordIds = Array.isArray(order.financeRecordIds) ? order.financeRecordIds : [];
+  order.financeRecordIds.push(financeResult.record.id);
+  order.updatedAt = new Date().toISOString();
+
+  syncStudentPaymentStatus(student);
+  student.status = order.debtAmount > 0 ? "待跟进" : "已续费";
+  student.updatedAt = new Date().toISOString();
+
+  let communicationRecord = null;
+  if (order.debtAmount > 0) {
+    communicationRecord = createRenewalFollowUp(order, student, user);
+    communicationRecord.id = nextId(communicationRecords);
+    communicationRecords.unshift(communicationRecord);
+  }
+
+  return { order, student, financeRecord: financeResult.record, communicationRecord };
 }
 
 function createCommunicationRecord(body, students, user) {
@@ -1861,12 +2026,62 @@ async function handleApi(req, res, url) {
   const attendanceRecords = await readAttendanceRecords();
   const financeRecords = await readFinanceRecords();
   const communicationRecords = await readCommunicationRecords();
+  const renewalOrders = await readRenewalOrders();
 
   if (req.method === "GET" && url.pathname === "/api/p0") {
     sendJson(res, 200, {
       attendance: attendanceRecords,
       finance: financeRecords,
       communications: communicationRecords,
+      renewalOrders,
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/renewal-orders") {
+    const body = await readBody(req);
+    const result = createRenewalOrder({
+      ...body,
+      id: nextId(renewalOrders)
+    }, students, financeRecords, communicationRecords, user);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    renewalOrders.unshift(result.order);
+    await writeRenewalOrders(renewalOrders);
+    await writeFinanceRecords(financeRecords);
+    await writeCommunicationRecords(communicationRecords);
+    await writeStudents(students);
+    sendJson(res, 201, {
+      order: result.order,
+      financeRecord: result.financeRecord,
+      communicationRecord: result.communicationRecord,
+      student: enrichStudent(result.student),
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      renewalOrders,
+      businessSummary: makeSummary(students),
+      summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
+    });
+    return;
+  }
+
+  const renewalPayMatch = url.pathname.match(/^\/api\/renewal-orders\/(\d+)\/payments$/);
+  if (req.method === "POST" && renewalPayMatch) {
+    const body = await readBody(req);
+    const order = renewalOrders.find(item => item.id === Number(renewalPayMatch[1]));
+    const result = payRenewalOrder(order, body, students, financeRecords, communicationRecords, user);
+    if (result.error) return sendJson(res, 400, { error: result.error });
+    await writeRenewalOrders(renewalOrders);
+    await writeFinanceRecords(financeRecords);
+    await writeCommunicationRecords(communicationRecords);
+    await writeStudents(students);
+    sendJson(res, 201, {
+      order: result.order,
+      financeRecord: result.financeRecord,
+      communicationRecord: result.communicationRecord,
+      student: enrichStudent(result.student),
+      students: students.map(enrichStudent).sort((a, b) => b.riskScore - a.riskScore),
+      renewalOrders,
+      businessSummary: makeSummary(students),
       summary: makeP0Summary(attendanceRecords, financeRecords, communicationRecords)
     });
     return;

@@ -107,6 +107,36 @@ async function main() {
     assert(finance.data.student.lessonsLeft === 11, "income lessons should add to balance");
     assert(finance.data.summary.monthIncome >= 500, "P0 summary should include income");
 
+    const renewalOrder = await request("/api/renewal-orders", {
+      method: "POST",
+      body: JSON.stringify({
+        studentId,
+        date: "2026-05-20",
+        course: "续费课程",
+        lessons: 4,
+        amountDue: 1000,
+        amountPaid: 400,
+        paymentMethod: "微信",
+        note: "E2E renewal order"
+      })
+    }, cookie);
+    assert(renewalOrder.data.order.status === "部分收款", "partial renewal order should stay pending");
+    assert(renewalOrder.data.student.lessonsLeft === 15, "first renewal payment should credit lessons");
+    assert(renewalOrder.data.student.debtAmount === 600, "partial renewal order should create debt");
+
+    const renewalPayment = await request(`/api/renewal-orders/${renewalOrder.data.order.id}/payments`, {
+      method: "POST",
+      body: JSON.stringify({
+        date: "2026-05-20",
+        amount: 600,
+        paymentMethod: "微信",
+        note: "E2E renewal final payment"
+      })
+    }, cookie);
+    assert(renewalPayment.data.order.status === "已收清", "final renewal payment should close order");
+    assert(renewalPayment.data.student.debtAmount === 0, "final renewal payment should clear debt");
+    assert(renewalPayment.data.student.lessonsLeft === 15, "final renewal payment should not credit lessons twice");
+
     const communication = await request("/api/p0/communications", {
       method: "POST",
       body: JSON.stringify({
@@ -131,7 +161,7 @@ async function main() {
       method: "POST",
       body: JSON.stringify({ reason: "E2E回滚" })
     }, cookie);
-    assert(voided.data.student.lessonsLeft === 13, "void attendance should roll consumed lessons back");
+    assert(voided.data.student.lessonsLeft === 17, "void attendance should roll consumed lessons back");
 
     console.log("E2E checks passed");
   } finally {

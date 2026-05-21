@@ -1046,6 +1046,68 @@ h3 {
   background: #fff;
 }
 
+.renewal-order-section {
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid #eadfc8;
+  border-radius: 8px;
+  background: #fffdf8;
+}
+
+.renewal-order-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.renewal-order-form label {
+  display: grid;
+  gap: 7px;
+}
+
+.renewal-order-form .wide {
+  grid-column: 1 / -1;
+}
+
+.renewal-order-form button {
+  min-height: 40px;
+}
+
+.renewal-order-list {
+  display: grid;
+  gap: 8px;
+}
+
+.renewal-order-list article {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #eadfc8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.renewal-order-list small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.renewal-payment-form {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(110px, 1fr) auto;
+  gap: 8px;
+}
+
+.renewal-payment-form button {
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+}
+
 .ai-risk-section .section-title {
   margin-bottom: 12px;
 }
@@ -1963,6 +2025,8 @@ li {
   .workspace,
   .schedule-grid,
   .student-form,
+  .renewal-order-form,
+  .renewal-payment-form,
   .mini-form,
   .lesson-form,
   .insight-band,
@@ -1972,6 +2036,7 @@ li {
   }
 
   .student-form .wide,
+  .renewal-order-form .wide,
   .p0-form .wide,
   .lesson-form .wide {
     grid-column: auto;
