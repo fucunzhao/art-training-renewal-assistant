@@ -190,6 +190,10 @@
           <form id="studentForm" class="student-form">
             <label>&#x5B66;&#x5458;&#x59D3;&#x540D;<input name="name" id="studentNameInput" required placeholder="&#x8F93;&#x5165;&#x59D3;&#x540D;&#x540E;&#x81EA;&#x52A8;&#x67E5;&#x8BE2;&#x77E5;&#x8BC6;&#x5E93;"></label>
             <label>&#x5E74;&#x9F84;<input name="age" type="number" min="2" max="80" placeholder="&#x4F8B;&#x5982;&#xFF1A;8"></label>
+            <label>出生年月<input name="birthMonth" type="month"></label>
+            <label>家长联系电话<input name="parentPhone" required placeholder="必填，例如：13800000000"></label>
+            <label>家长邮箱<input name="parentEmail" type="email" placeholder="可选"></label>
+            <label>家长微信<input name="parentWechat" placeholder="可选"></label>
             <label>&#x4E0A;&#x8BFE;&#x8001;&#x5E08;<input name="teacher" required placeholder="&#x4F8B;&#x5982;&#xFF1A;&#x5468;&#x8001;&#x5E08;"></label>
             <label>&#x8BFE;&#x7A0B;<input name="course" placeholder="&#x4F8B;&#x5982;&#xFF1A;&#x5C11;&#x513F;&#x521B;&#x610F;&#x7F8E;&#x672F;"></label>
             <label>&#x7F34;&#x8D39;&#x65F6;&#x95F4;<input name="paidAt" type="date"></label>
@@ -223,6 +227,9 @@
             <label>教师姓名<input name="name" required placeholder="例如：周老师"></label>
             <label>手机号<input name="phone" placeholder="例如：13800000000"></label>
             <label>用工类型<select name="employmentType"><option value="全职">全职</option><option value="兼职">兼职</option></select></label>
+            <label>课酬计算<select name="payMethod"><option value="perLesson">按课时</option><option value="perLessonStudent">按课时+学生人数</option></select></label>
+            <label>单节课课酬<input name="payRate" type="number" min="0" value="0" placeholder="例如：120"></label>
+            <label>每生附加课酬<input name="studentRate" type="number" min="0" value="0" placeholder="按人数计时填写"></label>
             <label>每日最多课节<input name="maxDailyLessons" type="number" min="1" value="6"></label>
             <label class="wide">授课类型<select name="courseTypeIds" id="teacherCourseTypes" multiple></select></label>
             <div class="calendar-picker wide">
@@ -348,6 +355,10 @@
             <div class="section-title entry-title"><div><p class="eyebrow">已生成课表</p><h2>课节与课消</h2></div></div>
             <div class="schedule-table-wrap"><table class="schedule-table"><thead><tr><th>时间</th><th>班级</th><th>课程</th><th>老师</th><th>教室</th><th>学员</th><th>状态</th><th>操作</th></tr></thead><tbody id="lessonList"></tbody></table></div>
           </section>
+          <section class="schedule-card">
+            <div class="section-title entry-title"><div><p class="eyebrow">课酬结算</p><h2>按已课消课节自动计算</h2></div></div>
+            <div id="teacherPaySettlement" class="teacher-pay-settlement"></div>
+          </section>
         </section>
       </div>
     </section>
@@ -360,6 +371,7 @@
           <aside class="student-list" aria-label="学员列表"><div class="list-head"><h2>待跟进学员</h2><span id="resultCount">0人</span></div><div id="studentList" class="student-list-inner"></div></aside>
           <section class="detail-panel" aria-live="polite">
             <div class="detail-head"><div><p id="studentCourse" class="eyebrow">课程</p><h2 id="studentName">选择一位学员</h2></div><span id="riskBadge" class="risk-badge">风险</span></div>
+            <div id="studentContactSummary" class="student-contact-summary"></div>
             <div class="student-quick-actions" aria-label="学员快捷业务动作"><button type="button" data-student-quick-action="attendance">登记课消</button><button type="button" data-student-quick-action="finance">登记缴费</button><button type="button" data-student-quick-action="communication">登记沟通</button></div>
             <div class="metric-grid"><div class="metric"><span id="riskScore">0</span><small>流失风险分</small></div><div class="metric"><span id="lessonsLeft">0</span><small>剩余课时</small></div><div class="metric"><span id="daysToEnd">0</span><small>预计课消天数</small></div><div class="metric"><span id="renewalValue">¥0</span><small>续费金额</small></div></div>
             <div class="insight-band"><div><h3>系统判断</h3><ul id="riskReasons"></ul></div><div><h3>推荐动作</h3><p id="nextAction"></p></div></div>

@@ -65,6 +65,10 @@ async function main() {
       body: JSON.stringify({
         name: "E2E学员",
         age: 9,
+        birthMonth: "2017-09",
+        parentPhone: "13800000000",
+        parentEmail: "parent@example.com",
+        parentWechat: "e2e_parent",
         course: "创意美术",
         teacher: "周老师",
         paidAmount: 1000,
@@ -162,6 +166,54 @@ async function main() {
       body: JSON.stringify({ reason: "E2E回滚" })
     }, cookie);
     assert(voided.data.student.lessonsLeft === 17, "void attendance should roll consumed lessons back");
+
+    const courseType = await request("/api/schedule/course-types", {
+      method: "POST",
+      body: JSON.stringify({
+        name: "E2E课酬课程",
+        durationMinutes: 60,
+        defaultCapacity: 8
+      })
+    }, cookie);
+
+    const teacher = await request("/api/teachers", {
+      method: "POST",
+      body: JSON.stringify({
+        name: "E2E课酬老师",
+        phone: "13900000000",
+        employmentType: "兼职",
+        payMethod: "perLessonStudent",
+        payRate: 100,
+        studentRate: 10,
+        courseTypeIds: [courseType.data.courseType.id],
+        availableDates: ["2026-05-22"],
+        periods: ["morning"]
+      })
+    }, cookie);
+
+    const metaBeforeLesson = await request("/api/schedule/meta", {}, cookie);
+    const roomId = metaBeforeLesson.data.rooms[0].id;
+    const lesson = await request("/api/schedule/lessons", {
+      method: "POST",
+      body: JSON.stringify({
+        courseId: courseType.data.courseType.id,
+        teacherId: teacher.data.teacher.id,
+        roomId,
+        studentIds: [studentId],
+        startTime: "2026-05-22T09:00:00.000Z",
+        endTime: "2026-05-22T10:00:00.000Z",
+        force: true
+      })
+    }, cookie);
+
+    await request(`/api/schedule/lessons/${lesson.data.lesson.id}/complete`, {
+      method: "POST",
+      body: JSON.stringify({})
+    }, cookie);
+
+    const metaAfterPay = await request("/api/schedule/meta", {}, cookie);
+    const settlement = metaAfterPay.data.teacherPaySettlement.find(item => item.teacherId === teacher.data.teacher.id);
+    assert(settlement.totalPay === 110, "teacher pay should include base lesson pay and per-student pay");
 
     console.log("E2E checks passed");
   } finally {

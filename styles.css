@@ -394,6 +394,38 @@ h3 {
   font-size: 16px;
 }
 
+.teacher-pay-settlement {
+  display: grid;
+  gap: 10px;
+}
+
+.teacher-pay-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #eadcc8;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.teacher-pay-card small,
+.teacher-pay-lessons {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.teacher-pay-lessons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teacher-pay-lessons span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #fff8ed;
+}
+
 .mini-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1635,6 +1667,22 @@ textarea:focus {
 
 .student-card strong {
   font-size: 16px;
+}
+
+.student-contact-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.student-contact-summary span {
+  padding: 6px 10px;
+  border: 1px solid #dce6f3;
+  border-radius: 999px;
+  background: #f7faff;
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .student-meta {

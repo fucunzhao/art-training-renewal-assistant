@@ -1032,6 +1032,7 @@ function renderScheduleOptions() {
   renderClasses();
   renderAvailability();
   renderRecommendations();
+  renderTeacherPaySettlement();
 }
 
 function monthValue(date = new Date()) {
@@ -1088,17 +1089,41 @@ function renderCourseTypes() {
 function renderTeachers() {
   document.getElementById("teacherList").innerHTML = state.scheduleMeta.teachers.map(teacher => {
     const slots = summarizeTeacherSlots(teacher.availableTimes || []);
+    const payText = teacher.payMethod === "perLessonStudent"
+      ? `按课时+人数 · ${currency.format(teacher.payRate || 0)}/课时 + ${currency.format(teacher.studentRate || 0)}/生`
+      : `按课时 · ${currency.format(teacher.payRate || 0)}/课时`;
     return `
       <div class="compact-item teacher-item">
         <span class="teacher-summary">
           <strong>${teacher.name}</strong>
           <span class="teacher-meta">${teacher.employmentType || "\u672a\u8bbe\u7f6e"} \u00b7 ${teacher.courseNames || "\u672a\u7ed1\u5b9a\u8bfe\u7a0b"} \u00b7 ${slots.countText}</span>
-          <small>${teacher.phone || "\u672a\u586b\u7535\u8bdd"} \u00b7 ${slots.previewText}</small>
+          <small>${teacher.phone || "\u672a\u586b\u7535\u8bdd"} \u00b7 ${payText} \u00b7 ${slots.previewText}</small>
         </span>
         <button type="button" data-delete-teacher="${teacher.id}">\u5220\u9664</button>
       </div>
     `;
   }).join("") || "<p class=\"empty-state\">\u6682\u65e0\u6559\u5e08\u8d44\u6599</p>";
+}
+
+function renderTeacherPaySettlement() {
+  const container = document.getElementById("teacherPaySettlement");
+  if (!container || !state.scheduleMeta) return;
+  const settlements = state.scheduleMeta.teacherPaySettlement || [];
+  if (!settlements.length) {
+    container.innerHTML = "<p class=\"empty-state\">暂无已课消课节，暂不能生成课酬。</p>";
+    return;
+  }
+  container.innerHTML = settlements.map(item => `
+    <article class="teacher-pay-card">
+      <div>
+        <strong>${item.teacherName}</strong>
+        <small>${item.lessonCount} 节课 · ${item.studentCount} 人次 · 应结 ${currency.format(item.totalPay || 0)}</small>
+      </div>
+      <div class="teacher-pay-lessons">
+        ${item.lessons.slice(0, 4).map(lesson => `<span>${new Date(lesson.startTime).toLocaleDateString("zh-CN")} · ${lesson.courseName} · ${lesson.studentCount}人 · ${currency.format(lesson.teacherPay?.amount || 0)}</span>`).join("")}
+      </div>
+    </article>
+  `).join("");
 }
 
 function renderClasses() {
@@ -1251,6 +1276,16 @@ function renderDetail() {
   const riskBadge = document.getElementById("riskBadge");
   document.getElementById("studentCourse").textContent = `${student.course} · ${student.teacher}`;
   document.getElementById("studentName").textContent = student.name;
+  const contactSummary = document.getElementById("studentContactSummary");
+  if (contactSummary) {
+    const contactItems = [
+      student.birthMonth ? `出生年月：${student.birthMonth}` : "",
+      `家长电话：${student.parentPhone || "未填写"}`,
+      student.parentWechat ? `微信：${student.parentWechat}` : "",
+      student.parentEmail ? `邮箱：${student.parentEmail}` : ""
+    ].filter(Boolean);
+    contactSummary.innerHTML = contactItems.map(item => `<span>${item}</span>`).join("");
+  }
   riskBadge.textContent = student.riskLevel.text;
   riskBadge.className = `risk-badge ${student.riskLevel.className}`;
   document.getElementById("riskScore").textContent = student.riskScore;
@@ -1281,7 +1316,7 @@ async function copyText(text, label) {
 function fillStudentForm(record) {
   const form = document.getElementById("studentForm");
   if (!record || !form) return;
-  const fields = ["age", "teacher", "course", "paidAt", "paidAmount", "paymentStatus", "debtAmount", "prepaidLessons", "daysToEnd", "absentRate", "parentReplies", "homeworkMissed", "lastContact"];
+  const fields = ["age", "birthMonth", "parentPhone", "parentEmail", "parentWechat", "teacher", "course", "paidAt", "paidAmount", "paymentStatus", "debtAmount", "prepaidLessons", "daysToEnd", "absentRate", "parentReplies", "homeworkMissed", "lastContact"];
   fields.forEach(name => {
     if (form[name] && record[name] !== undefined && record[name] !== null && record[name] !== "") form[name].value = record[name];
   });
@@ -1358,6 +1393,9 @@ function teacherPayload(form) {
     name: form.name.value,
     phone: form.phone.value,
     employmentType: form.employmentType.value,
+    payMethod: form.payMethod.value,
+    payRate: form.payRate.value,
+    studentRate: form.studentRate.value,
     maxDailyLessons: form.maxDailyLessons.value,
     notes: form.notes.value,
     courseTypeIds: [...form.courseTypeIds.selectedOptions].map(option => Number(option.value)),
@@ -1373,6 +1411,8 @@ async function createTeacher(form) {
   await api("/api/teachers", { method: "POST", body: JSON.stringify(payload) });
   form.reset();
   form.maxDailyLessons.value = 6;
+  form.payRate.value = 0;
+  form.studentRate.value = 0;
   state.selectedTeacherDates.clear();
   form.querySelectorAll("[name=periods]").forEach(input => { input.checked = input.value === "morning"; });
   renderTeacherCalendar();
@@ -1406,9 +1446,9 @@ async function uploadKnowledgeFile() {
 
 function downloadStudentImportTemplate() {
   const rows = [
-    ["姓名", "年龄", "课程", "老师", "缴费时间", "缴费金额", "缴费状态", "欠费金额", "预缴课时", "剩余课时", "预计课消天数", "缺勤率", "家长回复", "作业缺交", "最近联系", "成长证据"],
-    ["王一诺", "8", "创意美术", "周老师", todayValue(), "3980", "已缴清", "0", "32", "", "14", "0", "1", "0", "未联系", "色彩层次提升明显"],
-    ["李小美", "7", "素描基础", "李老师", todayValue(), "1000", "部分缴费", "1980", "24", "", "10", "5", "0", "1", "已微信沟通", "线条控制更稳定"]
+    ["姓名", "年龄", "出生年月", "家长电话", "家长邮箱", "家长微信", "课程", "老师", "缴费时间", "缴费金额", "缴费状态", "欠费金额", "预缴课时", "剩余课时", "预计课消天数", "缺勤率", "家长回复", "作业缺交", "最近联系", "成长证据"],
+    ["王一诺", "8", "2018-05", "13800000000", "parent@example.com", "wx_wang", "创意美术", "周老师", todayValue(), "3980", "已缴清", "0", "32", "", "14", "0", "1", "0", "未联系", "色彩层次提升明显"],
+    ["李小美", "7", "2019-03", "13900000000", "", "wx_li", "素描基础", "李老师", todayValue(), "1000", "部分缴费", "1980", "24", "", "10", "5", "0", "1", "已微信沟通", "线条控制更稳定"]
   ];
   downloadCsvFile(`学员批量导入模板-${todayValue()}.csv`, rows);
   showToast("已下载学员批量导入模板");
@@ -1620,6 +1660,7 @@ async function completeLesson(id) {
   state.students = data.students;
   renderLessons();
   renderSummary(data.summary);
+  await loadScheduleMeta();
   await loadP0Data();
   render();
   showToast(`\u5df2\u5b8c\u6210\u8bfe\u6d88\uff1a${data.consumed.length} \u4f4d\u5b66\u5458\u6263\u8bfe`);

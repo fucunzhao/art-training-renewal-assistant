@@ -226,6 +226,10 @@ function studentKnowledgeFromStudent(student) {
     id: student.id,
     name: student.name,
     age: student.age || "",
+    birthMonth: student.birthMonth || "",
+    parentPhone: student.parentPhone || "",
+    parentEmail: student.parentEmail || "",
+    parentWechat: student.parentWechat || "",
     teacher: student.teacher || "",
     course: student.course || "",
     paidAt: student.paidAt || "",
@@ -861,6 +865,11 @@ async function createStudent(body, students) {
   const student = existing || { id: students.reduce((max, item) => Math.max(max, item.id || 0), 0) + 1 };
   student.name = name;
   student.age = String(body.age || student.age || "").trim();
+  student.birthMonth = String(body.birthMonth || student.birthMonth || "").trim();
+  student.parentPhone = String(body.parentPhone || student.parentPhone || "").trim();
+  student.parentEmail = String(body.parentEmail || student.parentEmail || "").trim();
+  student.parentWechat = String(body.parentWechat || student.parentWechat || "").trim();
+  if (!student.parentPhone) return { error: "家长联系电话为必填项" };
   student.course = String(body.course || student.course || "\u5f85\u8bbe\u7f6e\u8bfe\u7a0b").trim();
   student.teacher = String(body.teacher || student.teacher || "\u5f85\u5206\u914d\u8001\u5e08").trim();
   student.paidAt = String(body.paidAt || student.paidAt || "").trim();
@@ -1266,17 +1275,51 @@ function getStudentNames(students, studentIds) {
     .join("\u3001");
 }
 
-function enrichLesson(lesson, schedule, students) {
-  const teacher = schedule.teachers.find(item => item.id === Number(lesson.teacherId));
-  const room = schedule.rooms.find(item => item.id === Number(lesson.roomId));
-  const course = (schedule.courseTypes || schedule.courses || []).find(item => item.id === Number(lesson.courseId));
+function calculateTeacherLessonPay(lesson, teacher) {
+  const baseRate = toNumber(teacher?.payRate, 0);
+  const studentRate = toNumber(teacher?.studentRate, 0);
+  const studentCount = (lesson.studentIds || []).length;
+  const durationHours = Math.max(0, (new Date(lesson.endTime) - new Date(lesson.startTime)) / 3_600_000);
+  const lessonUnits = durationHours > 0 ? durationHours : 1;
+  const method = teacher?.payMethod === "perLessonStudent" ? "perLessonStudent" : "perLesson";
+  const amount = method === "perLessonStudent"
+    ? (baseRate * lessonUnits) + (studentRate * studentCount * lessonUnits)
+    : baseRate * lessonUnits;
   return {
-    ...lesson,
-    teacherName: teacher?.name || "\u672a\u5206\u914d\u8001\u5e08",
-    roomName: room?.name || "\u672a\u5206\u914d\u6559\u5ba4",
-    courseName: course?.name || "\u672a\u8bbe\u7f6e\u8bfe\u7a0b",
-    studentNames: getStudentNames(students, lesson.studentIds || [])
+    method,
+    baseRate,
+    studentRate,
+    studentCount,
+    lessonUnits,
+    amount: Math.round(amount * 100) / 100
   };
+}
+
+function makeTeacherPaySettlement(schedule, students) {
+  const completedLessons = (schedule.lessons || [])
+    .filter(lesson => lesson.status === "completed")
+    .map(lesson => enrichLesson(lesson, schedule, students));
+  const teacherMap = new Map();
+  for (const lesson of completedLessons) {
+    const key = Number(lesson.teacherId);
+    const current = teacherMap.get(key) || {
+      teacherId: key,
+      teacherName: lesson.teacherName,
+      lessonCount: 0,
+      studentCount: 0,
+      totalPay: 0,
+      lessons: []
+    };
+    current.lessonCount += 1;
+    current.studentCount += Number(lesson.studentCount || 0);
+    current.totalPay += Number(lesson.teacherPay?.amount || 0);
+    current.lessons.push(lesson);
+    teacherMap.set(key, current);
+  }
+  return [...teacherMap.values()].map(item => ({
+    ...item,
+    totalPay: Math.round(item.totalPay * 100) / 100
+  }));
 }
 
 
@@ -1562,13 +1605,16 @@ function enrichLesson(lesson, schedule, students) {
   const room = schedule.rooms.find(item => item.id === Number(lesson.roomId));
   const course = courseById(schedule, lesson.courseId);
   const classItem = schedule.classes.find(item => item.id === Number(lesson.classId));
+  const studentIds = (lesson.studentIds || []).map(Number).filter(Boolean);
   return {
     ...lesson,
     teacherName: teacher?.name || "\u672a\u5206\u914d\u8001\u5e08",
     roomName: room?.name || "\u672a\u5206\u914d\u6559\u5ba4",
     courseName: course?.name || "\u672a\u8bbe\u7f6e\u8bfe\u7a0b",
     className: classItem?.name || "",
-    studentNames: getStudentNames(students, lesson.studentIds || [])
+    studentNames: getStudentNames(students, studentIds),
+    studentCount: studentIds.length,
+    teacherPay: calculateTeacherLessonPay(lesson, teacher)
   };
 }
 
@@ -1604,6 +1650,9 @@ function createTeacherRecord(body, schedule) {
     name,
     phone: String(body.phone || "").trim(),
     employmentType: ["\u5168\u804c", "\u517c\u804c"].includes(body.employmentType) ? body.employmentType : "\u5168\u804c",
+    payMethod: body.payMethod === "perLessonStudent" ? "perLessonStudent" : "perLesson",
+    payRate: toNumber(body.payRate, 0),
+    studentRate: toNumber(body.studentRate, 0),
     courseTypeIds,
     maxDailyLessons: toNumber(body.maxDailyLessons, 6),
     notes: String(body.notes || "").trim(),
@@ -1758,6 +1807,10 @@ function parseCsv(content, source) {
       source: `${source}#${index + 1}`,
       name: rowValue(row, ["name", "\u59d3\u540d", "\u5b66\u5458", "\u5b66\u751f"]),
       age: rowValue(row, ["age", "\u5e74\u9f84"]),
+      birthMonth: rowValue(row, ["birthMonth", "\u51fa\u751f\u5e74\u6708", "\u51fa\u751f\u65e5\u671f", "\u751f\u65e5"]),
+      parentPhone: rowValue(row, ["parentPhone", "\u5bb6\u957f\u7535\u8bdd", "\u5bb6\u957f\u8054\u7cfb\u7535\u8bdd", "\u8054\u7cfb\u65b9\u5f0f", "\u8054\u7cfb\u7535\u8bdd", "\u624b\u673a\u53f7"]),
+      parentEmail: rowValue(row, ["parentEmail", "\u5bb6\u957f\u90ae\u7bb1", "\u90ae\u7bb1"]),
+      parentWechat: rowValue(row, ["parentWechat", "\u5bb6\u957f\u5fae\u4fe1", "\u5fae\u4fe1"]),
       course: rowValue(row, ["course", "\u8bfe\u7a0b", "\u62a5\u540d\u8bfe\u7a0b"]),
       teacher: rowValue(row, ["teacher", "\u8001\u5e08", "\u6559\u5e08", "\u4e0a\u8bfe\u8001\u5e08"]),
       paidAt: rowValue(row, ["paidAt", "\u7f34\u8d39\u65f6\u95f4", "\u6536\u6b3e\u65e5\u671f"]),
@@ -1786,6 +1839,10 @@ function normalizeCandidate(candidate) {
     source: candidate.source || "knowledge_base",
     name: String(candidate.name || "").trim(),
     age: String(candidate.age || "").trim(),
+    birthMonth: String(candidate.birthMonth || "").trim(),
+    parentPhone: String(candidate.parentPhone || "").trim(),
+    parentEmail: String(candidate.parentEmail || "").trim(),
+    parentWechat: String(candidate.parentWechat || "").trim(),
     course: String(candidate.course || "\u5f85\u8bbe\u7f6e\u8bfe\u7a0b").trim(),
     teacher: String(candidate.teacher || "\u5f85\u5206\u914d\u8001\u5e08").trim(),
     paidAt: String(candidate.paidAt || "").trim(),
@@ -1807,6 +1864,7 @@ function normalizeCandidate(candidate) {
 function annotateImportCandidate(candidate, students) {
   const missing = [];
   if (!candidate.name) missing.push("\u59d3\u540d");
+  if (!candidate.parentPhone) missing.push("\u5bb6\u957f\u7535\u8bdd");
   if (!candidate.course || candidate.course === "\u5f85\u8bbe\u7f6e\u8bfe\u7a0b") missing.push("\u8bfe\u7a0b");
   if (!candidate.teacher || candidate.teacher === "\u5f85\u5206\u914d\u8001\u5e08") missing.push("\u8001\u5e08");
   const existing = students.find(student => normalizeStudentName(student.name) === normalizeStudentName(candidate.name));
@@ -2264,6 +2322,7 @@ async function handleApi(req, res, url) {
       courses: schedule.courseTypes,
       teacherAvailability: schedule.teacherAvailability,
       studentAvailability: schedule.studentAvailability,
+      teacherPaySettlement: makeTeacherPaySettlement(schedule, students),
       students: students.map(student => ({
         id: student.id,
         name: student.name,
